@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase, DESPACHO_ID, DESPACHO_NOMBRE, type Proyecto } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, BookOpen } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Cotizaciones · Grupo Proyecta" }] }),
@@ -42,9 +42,14 @@ function Dashboard() {
             <h1 className="text-lg font-semibold tracking-tight">{DESPACHO_NOMBRE}</h1>
             <p className="text-xs text-muted-foreground">Sistema de cotizaciones</p>
           </div>
-          <Link to="/cotizaciones/nueva">
-            <Button><Plus className="mr-2 h-4 w-4" />Nueva cotización</Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/catalogo">
+              <Button variant="outline"><BookOpen className="mr-2 h-4 w-4" />Catálogo</Button>
+            </Link>
+            <Link to="/cotizaciones/nueva">
+              <Button><Plus className="mr-2 h-4 w-4" />Nueva cotización</Button>
+            </Link>
+          </div>
         </div>
       </header>
 
