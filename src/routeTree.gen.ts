@@ -10,33 +10,76 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CotizacionesNuevaRouteImport } from './routes/cotizaciones.nueva'
+import { Route as CotizacionesIdResumenRouteImport } from './routes/cotizaciones.$id.resumen'
+import { Route as CotizacionesIdEditarRouteImport } from './routes/cotizaciones.$id.editar'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CotizacionesNuevaRoute = CotizacionesNuevaRouteImport.update({
+  id: '/cotizaciones/nueva',
+  path: '/cotizaciones/nueva',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CotizacionesIdResumenRoute = CotizacionesIdResumenRouteImport.update({
+  id: '/cotizaciones/$id/resumen',
+  path: '/cotizaciones/$id/resumen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CotizacionesIdEditarRoute = CotizacionesIdEditarRouteImport.update({
+  id: '/cotizaciones/$id/editar',
+  path: '/cotizaciones/$id/editar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
+  '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
+  '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
+  '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/cotizaciones/nueva'
+    | '/cotizaciones/$id/editar'
+    | '/cotizaciones/$id/resumen'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/cotizaciones/nueva'
+    | '/cotizaciones/$id/editar'
+    | '/cotizaciones/$id/resumen'
+  id:
+    | '__root__'
+    | '/'
+    | '/cotizaciones/nueva'
+    | '/cotizaciones/$id/editar'
+    | '/cotizaciones/$id/resumen'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CotizacionesNuevaRoute: typeof CotizacionesNuevaRoute
+  CotizacionesIdEditarRoute: typeof CotizacionesIdEditarRoute
+  CotizacionesIdResumenRoute: typeof CotizacionesIdResumenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +91,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cotizaciones/nueva': {
+      id: '/cotizaciones/nueva'
+      path: '/cotizaciones/nueva'
+      fullPath: '/cotizaciones/nueva'
+      preLoaderRoute: typeof CotizacionesNuevaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cotizaciones/$id/resumen': {
+      id: '/cotizaciones/$id/resumen'
+      path: '/cotizaciones/$id/resumen'
+      fullPath: '/cotizaciones/$id/resumen'
+      preLoaderRoute: typeof CotizacionesIdResumenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cotizaciones/$id/editar': {
+      id: '/cotizaciones/$id/editar'
+      path: '/cotizaciones/$id/editar'
+      fullPath: '/cotizaciones/$id/editar'
+      preLoaderRoute: typeof CotizacionesIdEditarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CotizacionesNuevaRoute: CotizacionesNuevaRoute,
+  CotizacionesIdEditarRoute: CotizacionesIdEditarRoute,
+  CotizacionesIdResumenRoute: CotizacionesIdResumenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
