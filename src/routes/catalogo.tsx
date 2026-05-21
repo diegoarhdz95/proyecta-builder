@@ -49,6 +49,20 @@ function calcPrecio(c: {
   return conInd * (1 + Number(c.factor_utilidad || 0));
 }
 
+function computeNextClave(last: string | undefined, partidaClave?: string): string {
+  if (last) {
+    const m = last.match(/^(.*?)(\d+)\s*$/);
+    if (m) {
+      const width = m[2].length;
+      const next = String(Number(m[2]) + 1).padStart(width, "0");
+      return `${m[1]}${next}`;
+    }
+    return `${last}-001`;
+  }
+  const prefix = (partidaClave || "GEN").trim();
+  return `${prefix}-001`;
+}
+
 type FormState = {
   id?: string;
   partida_id: string;
