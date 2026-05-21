@@ -304,6 +304,23 @@ function ConceptoForm({
   const num = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     onChange({ ...value, [k]: e.target.value === "" ? 0 : Number(e.target.value) });
 
+  async function handlePartidaChange(partidaId: string) {
+    if (!partidaId) {
+      onChange({ ...value, partida_id: "", clave: "" });
+      return;
+    }
+    const { data } = await supabase
+      .from("conceptos")
+      .select("clave")
+      .eq("partida_id", partidaId)
+      .order("clave", { ascending: false })
+      .limit(1);
+    const last = (data?.[0]?.clave as string | undefined) ?? undefined;
+    const partidaClave = partidas.find((p) => p.id === partidaId)?.clave;
+    const next = computeNextClave(last, partidaClave);
+    onChange({ ...value, partida_id: partidaId, clave: next });
+  }
+
   return (
     <div className="grid grid-cols-2 gap-4 py-2">
       {showPartidaSelect && (
@@ -311,7 +328,7 @@ function ConceptoForm({
           <Label>Partida</Label>
           <select
             value={value.partida_id}
-            onChange={(e) => set("partida_id", e.target.value)}
+            onChange={(e) => handlePartidaChange(e.target.value)}
             className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
           >
             <option value="">Selecciona partida...</option>
