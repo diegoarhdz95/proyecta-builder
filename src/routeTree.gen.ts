@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CotizacionesNuevaRouteImport } from './routes/cotizaciones.nueva'
+import { Route as CotizacionesIdEditarRouteImport } from './routes/cotizaciones.$id.editar'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const CotizacionesNuevaRoute = CotizacionesNuevaRouteImport.update({
   path: '/cotizaciones/nueva',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CotizacionesIdEditarRoute = CotizacionesIdEditarRouteImport.update({
+  id: '/cotizaciones/$id/editar',
+  path: '/cotizaciones/$id/editar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/cotizaciones/nueva'
+  fullPaths: '/' | '/cotizaciones/nueva' | '/cotizaciones/$id/editar'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/cotizaciones/nueva'
-  id: '__root__' | '/' | '/cotizaciones/nueva'
+  to: '/' | '/cotizaciones/nueva' | '/cotizaciones/$id/editar'
+  id: '__root__' | '/' | '/cotizaciones/nueva' | '/cotizaciones/$id/editar'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CotizacionesNuevaRoute: typeof CotizacionesNuevaRoute
+  CotizacionesIdEditarRoute: typeof CotizacionesIdEditarRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CotizacionesNuevaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cotizaciones/$id/editar': {
+      id: '/cotizaciones/$id/editar'
+      path: '/cotizaciones/$id/editar'
+      fullPath: '/cotizaciones/$id/editar'
+      preLoaderRoute: typeof CotizacionesIdEditarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CotizacionesNuevaRoute: CotizacionesNuevaRoute,
+  CotizacionesIdEditarRoute: CotizacionesIdEditarRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
