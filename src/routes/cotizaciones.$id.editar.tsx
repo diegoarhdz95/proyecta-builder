@@ -107,7 +107,6 @@ function Editor() {
     try {
       const ppId = await getOrCreateProyectoPartida(c.partida_id);
       const cantidad = 1;
-      const sub = cantidad * Number(c.precio_unitario);
       const { error } = await supabase.from("proyecto_conceptos").insert({
         proyecto_id: id,
         proyecto_partida_id: ppId,
@@ -116,7 +115,6 @@ function Editor() {
         cantidad,
         unidad: c.unidad,
         precio_unitario_final: c.precio_unitario,
-        subtotal: sub,
       });
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ["proyecto_conceptos", id] });
@@ -128,9 +126,8 @@ function Editor() {
   }
 
   async function updateCantidad(item: ProyectoConcepto, cantidad: number) {
-    const sub = cantidad * Number(item.precio_unitario_final);
     await supabase.from("proyecto_conceptos")
-      .update({ cantidad, subtotal: sub })
+      .update({ cantidad })
       .eq("id", item.id);
     qc.invalidateQueries({ queryKey: ["proyecto_conceptos", id] });
     await recalcularTotales();
