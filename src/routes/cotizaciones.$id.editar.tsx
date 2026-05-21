@@ -5,7 +5,7 @@ import { supabase, DESPACHO_ID, IVA_RATE, type Partida, type Concepto, type Proy
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ArrowLeft, FileText, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, FileText, PieChart, Plus, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/cotizaciones/$id/editar")({
   head: () => ({ meta: [{ title: "Editor de cotización · Grupo Proyecta" }] }),
@@ -150,9 +150,14 @@ function Editor() {
               <h1 className="text-base font-semibold">{proyecto?.nombre_proyecto}</h1>
             </div>
           </div>
-          <Link to="/cotizaciones/$id/resumen" params={{ id }}>
-            <Button variant="outline"><FileText className="mr-2 h-4 w-4" />Ver resumen</Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/cotizaciones/$id/desglose" params={{ id }}>
+              <Button variant="outline"><PieChart className="mr-2 h-4 w-4" />Desglose financiero</Button>
+            </Link>
+            <Link to="/cotizaciones/$id/resumen" params={{ id }}>
+              <Button variant="outline"><FileText className="mr-2 h-4 w-4" />Ver resumen</Button>
+            </Link>
+          </div>
         </div>
       </header>
 

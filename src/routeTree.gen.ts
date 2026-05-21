@@ -14,6 +14,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CotizacionesNuevaRouteImport } from './routes/cotizaciones.nueva'
 import { Route as CotizacionesIdResumenRouteImport } from './routes/cotizaciones.$id.resumen'
 import { Route as CotizacionesIdEditarRouteImport } from './routes/cotizaciones.$id.editar'
+import { Route as CotizacionesIdDesgloseRouteImport } from './routes/cotizaciones.$id.desglose'
 
 const CatalogoRoute = CatalogoRouteImport.update({
   id: '/catalogo',
@@ -40,11 +41,17 @@ const CotizacionesIdEditarRoute = CotizacionesIdEditarRouteImport.update({
   path: '/cotizaciones/$id/editar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CotizacionesIdDesgloseRoute = CotizacionesIdDesgloseRouteImport.update({
+  id: '/cotizaciones/$id/desglose',
+  path: '/cotizaciones/$id/desglose',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/cotizaciones/$id/desglose': typeof CotizacionesIdDesgloseRoute
   '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
   '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/cotizaciones/$id/desglose': typeof CotizacionesIdDesgloseRoute
   '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
   '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
 }
@@ -60,6 +68,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/cotizaciones/$id/desglose': typeof CotizacionesIdDesgloseRoute
   '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
   '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
 }
@@ -69,6 +78,7 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/cotizaciones/nueva'
+    | '/cotizaciones/$id/desglose'
     | '/cotizaciones/$id/editar'
     | '/cotizaciones/$id/resumen'
   fileRoutesByTo: FileRoutesByTo
@@ -76,6 +86,7 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/cotizaciones/nueva'
+    | '/cotizaciones/$id/desglose'
     | '/cotizaciones/$id/editar'
     | '/cotizaciones/$id/resumen'
   id:
@@ -83,6 +94,7 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/cotizaciones/nueva'
+    | '/cotizaciones/$id/desglose'
     | '/cotizaciones/$id/editar'
     | '/cotizaciones/$id/resumen'
   fileRoutesById: FileRoutesById
@@ -91,6 +103,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CatalogoRoute: typeof CatalogoRoute
   CotizacionesNuevaRoute: typeof CotizacionesNuevaRoute
+  CotizacionesIdDesgloseRoute: typeof CotizacionesIdDesgloseRoute
   CotizacionesIdEditarRoute: typeof CotizacionesIdEditarRoute
   CotizacionesIdResumenRoute: typeof CotizacionesIdResumenRoute
 }
@@ -132,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CotizacionesIdEditarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cotizaciones/$id/desglose': {
+      id: '/cotizaciones/$id/desglose'
+      path: '/cotizaciones/$id/desglose'
+      fullPath: '/cotizaciones/$id/desglose'
+      preLoaderRoute: typeof CotizacionesIdDesgloseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -139,6 +159,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CatalogoRoute: CatalogoRoute,
   CotizacionesNuevaRoute: CotizacionesNuevaRoute,
+  CotizacionesIdDesgloseRoute: CotizacionesIdDesgloseRoute,
   CotizacionesIdEditarRoute: CotizacionesIdEditarRoute,
   CotizacionesIdResumenRoute: CotizacionesIdResumenRoute,
 }
