@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { ExpedienteTab } from "@/components/ExpedienteTab";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,7 +64,7 @@ function ProyectoPage() {
   const { obraId } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "pagos">("cotizaciones");
+  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "pagos" | "expediente">("cotizaciones");
 
   const { data: obra } = useQuery({
     queryKey: ["obra", obraId],
@@ -175,6 +176,7 @@ function ProyectoPage() {
             <TabsTrigger value="cotizaciones">Cotizaciones</TabsTrigger>
             <TabsTrigger value="desglose">Desglose financiero</TabsTrigger>
             <TabsTrigger value="pagos">Pagos</TabsTrigger>
+            <TabsTrigger value="expediente">Expediente</TabsTrigger>
           </TabsList>
 
           <TabsContent value="cotizaciones" className="mt-6 space-y-4">
@@ -262,6 +264,10 @@ function ProyectoPage() {
 
           <TabsContent value="pagos" className="mt-6">
             <PagosTab obraId={obraId} />
+          </TabsContent>
+
+          <TabsContent value="expediente" className="mt-6">
+            <ExpedienteTab obraId={obraId} />
           </TabsContent>
         </Tabs>
       </main>
