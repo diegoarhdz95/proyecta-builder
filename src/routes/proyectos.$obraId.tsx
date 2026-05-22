@@ -37,7 +37,7 @@ function ProyectoPage() {
     },
   });
 
-  const { data: cotizaciones, refetch: refetchCotiz } = useQuery({
+  const { data: cotizaciones } = useQuery({
     queryKey: ["cotizaciones_obra", obraId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -159,7 +159,6 @@ function ProyectoPage() {
                 </tbody>
               </table>
             </div>
-            <button onClick={() => refetchCotiz()} className="hidden" />
           </TabsContent>
 
           <TabsContent value="desglose" className="mt-6">
