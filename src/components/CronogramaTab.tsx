@@ -475,10 +475,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
                     value={editing.fecha_inicio}
                     onChange={(e) => {
                       const fi = e.target.value;
-                      const dur = Math.max(
-                        1,
-                        Math.round((new Date(editing.fecha_fin).getTime() - new Date(fi).getTime()) / 86400000),
-                      );
+                      const dur = businessDaysBetween(new Date(fi), new Date(editing.fecha_fin));
                       setEditing({ ...editing, fecha_inicio: fi, duracion_dias: dur });
                     }}
                   />
@@ -491,10 +488,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
                     value={editing.fecha_fin}
                     onChange={(e) => {
                       const ff = e.target.value;
-                      const dur = Math.max(
-                        1,
-                        Math.round((new Date(ff).getTime() - new Date(editing.fecha_inicio).getTime()) / 86400000),
-                      );
+                      const dur = businessDaysBetween(new Date(editing.fecha_inicio), new Date(ff));
                       setEditing({ ...editing, fecha_fin: ff, duracion_dias: dur });
                     }}
                   />
@@ -506,11 +500,12 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
                   <Input
                     className="mt-1"
                     type="number"
-                    min={1}
+                    min={0.5}
+                    step={0.5}
                     value={editing.duracion_dias}
                     onChange={(e) => {
-                      const dur = Math.max(1, Number(e.target.value) || 1);
-                      const ff = addDays(new Date(editing.fecha_inicio), dur);
+                      const dur = Math.max(0.5, Number(e.target.value) || 0.5);
+                      const ff = addBusinessDays(new Date(editing.fecha_inicio), dur);
                       setEditing({ ...editing, duracion_dias: dur, fecha_fin: toISO(ff) });
                     }}
                   />
@@ -526,6 +521,18 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
                       setEditing({ ...editing, factor_holgura: Number(e.target.value) || 1 })
                     }
                   />
+                </div>
+              </div>
+              <div className="rounded-md border bg-muted/30 p-3">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Días hábiles reales</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums">
+                  {businessDaysBetween(new Date(editing.fecha_inicio), new Date(editing.fecha_fin))}
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  L–V = 1 día · Sábado = 0.5 · Domingo y festivos oficiales MX = 0
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  Días calendario: {Math.max(1, Math.round((new Date(editing.fecha_fin).getTime() - new Date(editing.fecha_inicio).getTime()) / 86400000))}
                 </div>
               </div>
               <Button onClick={guardarEdicion} className="w-full">
