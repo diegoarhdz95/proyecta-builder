@@ -198,7 +198,7 @@ function Editor() {
     try {
       const { data: itemsFull, error: e1 } = await supabase
         .from("proyecto_conceptos")
-        .select("*, proyecto_partida:proyecto_partida_id(partida_id)")
+        .select("*, proyecto_partida:proyecto_partida_id(partida_id), concepto:concepto_id(especificaciones)")
         .eq("proyecto_id", id);
       if (e1) throw e1;
       const { data: allPartidas, error: e2 } = await supabase
