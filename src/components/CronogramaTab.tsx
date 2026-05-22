@@ -48,35 +48,76 @@ function addDays(d: Date, n: number) {
   r.setDate(r.getDate() + n);
   return r;
 }
-function isWeekend(d: Date) {
+/** Mexican statutory holidays (LFT art. 74). Returns ISO yyyy-mm-dd set for a given year. */
+function mxHolidaysForYear(year: number): Set<string> {
+  const iso = (m: number, d: number) => `${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  // First Monday of February
+  const feb = new Date(year, 1, 1);
+  const firstMonFeb = 1 + ((1 - feb.getDay() + 7) % 7);
+  // Third Monday of March (Natalicio Benito Juárez)
+  const mar = new Date(year, 2, 1);
+  const firstMonMar = 1 + ((1 - mar.getDay() + 7) % 7);
+  const thirdMonMar = firstMonMar + 14;
+  // Third Monday of November (Revolución)
+  const nov = new Date(year, 10, 1);
+  const firstMonNov = 1 + ((1 - nov.getDay() + 7) % 7);
+  const thirdMonNov = firstMonNov + 14;
+  return new Set<string>([
+    iso(1, 1),
+    iso(2, firstMonFeb),
+    iso(3, thirdMonMar),
+    iso(5, 1),
+    iso(9, 16),
+    iso(11, thirdMonNov),
+    iso(12, 25),
+  ]);
+}
+const _holidayCache = new Map<number, Set<string>>();
+function isMxHoliday(d: Date): boolean {
+  const y = d.getFullYear();
+  let set = _holidayCache.get(y);
+  if (!set) { set = mxHolidaysForYear(y); _holidayCache.set(y, set); }
+  const key = `${y}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return set.has(key);
+}
+/** Day weight: Mon–Fri = 1, Sat = 0.5, Sun + holiday = 0 */
+function dayWeight(d: Date): number {
+  if (isMxHoliday(d)) return 0;
   const g = d.getDay();
-  return g === 0 || g === 6;
+  if (g === 0) return 0;        // Sunday
+  if (g === 6) return 0.5;      // Saturday = half day
+  return 1;                      // Mon–Fri
+}
+function isNonWorking(d: Date): boolean {
+  return dayWeight(d) === 0;
 }
 function nextBusinessDay(d: Date) {
   const r = new Date(d);
-  while (isWeekend(r)) r.setDate(r.getDate() + 1);
+  while (isNonWorking(r)) r.setDate(r.getDate() + 1);
   return r;
 }
-/** Add N business days (Mon–Fri) to a date. */
+/** Advance from `d` until `n` business-day weight has been accumulated. Returns end date. */
 function addBusinessDays(d: Date, n: number) {
   const r = new Date(d);
   let left = n;
-  while (left > 0) {
+  // safety cap
+  let guard = 0;
+  while (left > 0 && guard++ < 3650) {
     r.setDate(r.getDate() + 1);
-    if (!isWeekend(r)) left--;
+    left -= dayWeight(r);
   }
   return r;
 }
-/** Count business days between two dates (exclusive end). */
+/** Sum of business-day weights between [a, b) (Sat = 0.5, Sun/holiday = 0). */
 function businessDaysBetween(a: Date, b: Date) {
   if (b <= a) return 1;
   let n = 0;
   const cur = new Date(a);
   while (cur < b) {
-    if (!isWeekend(cur)) n++;
+    n += dayWeight(cur);
     cur.setDate(cur.getDate() + 1);
   }
-  return Math.max(1, n);
+  return Math.max(0.5, Math.round(n * 2) / 2);
 }
 function toISO(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -434,10 +475,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
                     value={editing.fecha_inicio}
                     onChange={(e) => {
                       const fi = e.target.value;
-                      const dur = Math.max(
-                        1,
-                        Math.round((new Date(editing.fecha_fin).getTime() - new Date(fi).getTime()) / 86400000),
-                      );
+                      const dur = businessDaysBetween(new Date(fi), new Date(editing.fecha_fin));
                       setEditing({ ...editing, fecha_inicio: fi, duracion_dias: dur });
                     }}
                   />
@@ -450,10 +488,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
                     value={editing.fecha_fin}
                     onChange={(e) => {
                       const ff = e.target.value;
-                      const dur = Math.max(
-                        1,
-                        Math.round((new Date(ff).getTime() - new Date(editing.fecha_inicio).getTime()) / 86400000),
-                      );
+                      const dur = businessDaysBetween(new Date(editing.fecha_inicio), new Date(ff));
                       setEditing({ ...editing, fecha_fin: ff, duracion_dias: dur });
                     }}
                   />
@@ -465,11 +500,12 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
                   <Input
                     className="mt-1"
                     type="number"
-                    min={1}
+                    min={0.5}
+                    step={0.5}
                     value={editing.duracion_dias}
                     onChange={(e) => {
-                      const dur = Math.max(1, Number(e.target.value) || 1);
-                      const ff = addDays(new Date(editing.fecha_inicio), dur);
+                      const dur = Math.max(0.5, Number(e.target.value) || 0.5);
+                      const ff = addBusinessDays(new Date(editing.fecha_inicio), dur);
                       setEditing({ ...editing, duracion_dias: dur, fecha_fin: toISO(ff) });
                     }}
                   />
@@ -485,6 +521,18 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
                       setEditing({ ...editing, factor_holgura: Number(e.target.value) || 1 })
                     }
                   />
+                </div>
+              </div>
+              <div className="rounded-md border bg-muted/30 p-3">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Días hábiles reales</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums">
+                  {businessDaysBetween(new Date(editing.fecha_inicio), new Date(editing.fecha_fin))}
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  L–V = 1 día · Sábado = 0.5 · Domingo y festivos oficiales MX = 0
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  Días calendario: {Math.max(1, Math.round((new Date(editing.fecha_fin).getTime() - new Date(editing.fecha_inicio).getTime()) / 86400000))}
                 </div>
               </div>
               <Button onClick={guardarEdicion} className="w-full">
