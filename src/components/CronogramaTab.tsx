@@ -283,7 +283,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
             listCellWidth="220px"
             columnWidth={view === ViewMode.Month ? 200 : view === ViewMode.Week ? 100 : 50}
             onDateChange={(t) => persistTask(t.id, t.start, t.end)}
-            onClick={(t) => {
+            onClick={(t: Task) => {
               const a = (actividades ?? []).find((x) => x.id === t.id);
               if (a) setEditing({ ...a });
             }}
