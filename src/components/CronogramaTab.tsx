@@ -5,7 +5,7 @@ import "gantt-task-react/dist/index.css";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Save, AlertTriangle } from "lucide-react";
+import { Sparkles, Save, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -48,12 +48,49 @@ function addDays(d: Date, n: number) {
   r.setDate(r.getDate() + n);
   return r;
 }
+function isWeekend(d: Date) {
+  const g = d.getDay();
+  return g === 0 || g === 6;
+}
+function nextBusinessDay(d: Date) {
+  const r = new Date(d);
+  while (isWeekend(r)) r.setDate(r.getDate() + 1);
+  return r;
+}
+/** Add N business days (Mon–Fri) to a date. */
+function addBusinessDays(d: Date, n: number) {
+  const r = new Date(d);
+  let left = n;
+  while (left > 0) {
+    r.setDate(r.getDate() + 1);
+    if (!isWeekend(r)) left--;
+  }
+  return r;
+}
+/** Count business days between two dates (exclusive end). */
+function businessDaysBetween(a: Date, b: Date) {
+  if (b <= a) return 1;
+  let n = 0;
+  const cur = new Date(a);
+  while (cur < b) {
+    if (!isWeekend(cur)) n++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return Math.max(1, n);
+}
 function toISO(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 function colorFor(clave: string | null) {
   if (!clave) return "#64748b";
   return PARTIDA_COLORS[clave.toUpperCase()] ?? "#64748b";
+}
+function truncate(s: string, n = 25) {
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
+}
+function fmtFecha(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
 export function CronogramaTab({ obraId }: { obraId: string }) {
@@ -151,8 +188,9 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
       });
 
-      const start = addDays(new Date(), 7);
-      start.setHours(0, 0, 0, 0);
+      const startRaw = addDays(new Date(), 7);
+      startRaw.setHours(0, 0, 0, 0);
+      const start = nextBusinessDay(startRaw);
 
       let cursor = new Date(start);
       let orden = 0;
@@ -165,8 +203,8 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         for (const it of items) {
           const base = it.rendimiento > 0 ? it.cantidad / it.rendimiento : it.cantidad;
           const dias = Math.max(1, Math.round(base * HOLGURA));
-          const fi = new Date(cursor);
-          const ff = addDays(fi, dias);
+          const fi = nextBusinessDay(new Date(cursor));
+          const ff = addBusinessDays(fi, dias);
           nuevas.push({
             proyecto_id: it.proyecto_id,
             cotizacion_id: it.proyecto_id,
@@ -182,7 +220,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
           });
           if (ff > maxFin) maxFin = ff;
         }
-        cursor = maxFin;
+        cursor = nextBusinessDay(maxFin);
       }
 
       // borrar previas de ESTA cotización y guardar
@@ -202,7 +240,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
   const tasks: Task[] = useMemo(() => {
     return (actividades ?? []).map((a) => ({
       id: a.id,
-      name: `[${a.partida_clave ?? "·"}] ${a.nombre_actividad}`,
+      name: a.nombre_actividad,
       start: new Date(a.fecha_inicio),
       end: new Date(a.fecha_fin),
       type: "task",
@@ -218,7 +256,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
   }, [actividades]);
 
   async function persistTask(id: string, start: Date, end: Date) {
-    const dur = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
+    const dur = businessDaysBetween(start, end);
     const { error } = await supabase
       .from("cronograma_actividades")
       .update({
@@ -235,7 +273,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
     if (!editing) return;
     const fi = new Date(editing.fecha_inicio);
     const ff = new Date(editing.fecha_fin);
-    const dur = Math.max(1, Math.round((ff.getTime() - fi.getTime()) / 86400000));
+    const dur = businessDaysBetween(fi, ff);
     const { error } = await supabase
       .from("cronograma_actividades")
       .update({
@@ -251,6 +289,10 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
     setEditing(null);
     qc.invalidateQueries({ queryKey: ["cronograma", obraId] });
   }
+
+  const hasCronograma = (actividades ?? []).length > 0;
+  const rowHeight = 44;
+  const ganttHeight = Math.min(640, Math.max(500, (actividades ?? []).length * rowHeight + 60));
 
   return (
     <div className="space-y-4">
@@ -284,35 +326,82 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
               {o.l}
             </Button>
           ))}
-          <Button onClick={generar} disabled={generating || !selectedCotId}>
-            <Sparkles className="mr-2 h-4 w-4" />
-            {generating ? "Generando…" : "Generar cronograma con IA"}
-          </Button>
+          {hasCronograma ? (
+            <Button size="sm" variant="outline" onClick={generar} disabled={generating || !selectedCotId} title="Regenerar reemplaza el cronograma actual">
+              <RefreshCw className={`mr-2 h-3.5 w-3.5 ${generating ? "animate-spin" : ""}`} />
+              {generating ? "Regenerando…" : "Regenerar"}
+            </Button>
+          ) : (
+            <Button onClick={generar} disabled={generating || !selectedCotId}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              {generating ? "Generando…" : "Generar cronograma con IA"}
+            </Button>
+          )}
         </div>
       </div>
 
-      {tasks.length === 0 ? (
+      {!hasCronograma ? (
         <div className="rounded-lg border bg-card p-10 text-center text-sm text-muted-foreground">
           Aún no hay cronograma. Presiona <strong>Generar cronograma con IA</strong> para crearlo a partir de los conceptos.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-card">
+        <div className="w-full overflow-auto rounded-lg border bg-card gantt-wrap" style={{ maxHeight: 640 }}>
           <Gantt
             tasks={tasks}
             viewMode={view}
             locale="es-MX"
-            listCellWidth="220px"
+            listCellWidth="380px"
+            rowHeight={rowHeight}
+            ganttHeight={ganttHeight}
             columnWidth={view === ViewMode.Month ? 200 : view === ViewMode.Week ? 100 : 50}
             onDateChange={async (t) => { await persistTask(t.id, t.start, t.end); }}
             onClick={(t: Task) => {
               const a = (actividades ?? []).find((x) => x.id === t.id);
               if (a) setEditing({ ...a });
             }}
+            TaskListHeader={({ headerHeight, rowWidth, fontFamily, fontSize }) => (
+              <div
+                className="flex items-center border-b bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                style={{ height: headerHeight, width: rowWidth, fontFamily, fontSize }}
+              >
+                <div className="px-3" style={{ width: "55%" }}>Actividad</div>
+                <div className="px-2" style={{ width: "15%" }}>Inicio</div>
+                <div className="px-2" style={{ width: "15%" }}>Fin</div>
+                <div className="px-2 text-right" style={{ width: "15%" }}>Días</div>
+              </div>
+            )}
+            TaskListTable={({ rowHeight: rh, rowWidth, fontFamily, fontSize, tasks: ts }) => (
+              <div style={{ fontFamily, fontSize }}>
+                {ts.map((t) => {
+                  const dur = businessDaysBetween(t.start, t.end);
+                  return (
+                    <div
+                      key={t.id}
+                      className="flex items-center border-b last:border-b-0 hover:bg-muted/30"
+                      style={{ height: rh, width: rowWidth }}
+                    >
+                      <div className="truncate px-3" style={{ width: "55%" }} title={t.name}>
+                        {truncate(t.name, 25)}
+                      </div>
+                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "15%" }}>
+                        {fmtFecha(toISO(t.start))}
+                      </div>
+                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "15%" }}>
+                        {fmtFecha(toISO(t.end))}
+                      </div>
+                      <div className="px-2 text-right tabular-nums" style={{ width: "15%" }}>
+                        {dur}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             TooltipContent={({ task }) => (
               <div className="rounded-md border bg-popover px-3 py-2 text-xs shadow">
                 <div className="font-semibold">{task.name}</div>
                 <div>{toISO(task.start)} → {toISO(task.end)}</div>
-                <div>{Math.max(1, Math.round((task.end.getTime() - task.start.getTime()) / 86400000))} días</div>
+                <div>{businessDaysBetween(task.start, task.end)} días hábiles</div>
               </div>
             )}
           />
