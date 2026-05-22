@@ -90,6 +90,9 @@ function ProyectosList() {
             <Link to="/catalogo">
               <Button variant="outline"><BookOpen className="mr-2 h-4 w-4" />Catálogo</Button>
             </Link>
+            <Link to="/proveedores">
+              <Button variant="outline"><BookOpen className="mr-2 h-4 w-4" />Proveedores</Button>
+            </Link>
             <Link to="/proyectos/nuevo">
               <Button><Plus className="mr-2 h-4 w-4" />Nuevo proyecto</Button>
             </Link>
