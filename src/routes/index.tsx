@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Plus, BookOpen, Search, FileText, PieChart, Wallet } from "lucide-react";
+import { Plus, BookOpen, Search } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Proyectos · Grupo Proyecta" }] }),
@@ -123,8 +123,8 @@ function ProyectosList() {
             const total = Number(p.total_con_iva || 0);
             const pagado = pagadoPorProyecto.get(p.id) ?? 0;
             const pct = total > 0 ? (pagado / total) * 100 : 0;
-            return (
-              <article key={p.id} className="flex flex-col rounded-lg border bg-card p-5">
+            const cardInner = (
+              <>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <h3 className="truncate text-base font-semibold leading-tight">{p.nombre_proyecto}</h3>
@@ -147,31 +147,17 @@ function ProyectosList() {
                   </div>
                   <Progress value={Math.min(pct, 100)} className="mt-1.5 h-1.5" />
                 </div>
-
-                <div className="mt-4 grid grid-cols-3 gap-1.5">
-                  <Link to="/cotizaciones/$id/editar" params={{ id: p.id }}>
-                    <Button variant="outline" size="sm" className="w-full px-2 text-[11px]">
-                      <FileText className="h-3 w-3" />Cotización
-                    </Button>
-                  </Link>
-                  <Link to="/cotizaciones/$id/desglose" params={{ id: p.id }}>
-                    <Button variant="outline" size="sm" className="w-full px-2 text-[11px]">
-                      <PieChart className="h-3 w-3" />Desglose
-                    </Button>
-                  </Link>
-                  {p.obra_id ? (
-                    <Link to="/proyectos/$obraId" params={{ obraId: p.obra_id }}>
-                      <Button variant="outline" size="sm" className="w-full px-2 text-[11px]">
-                        <Wallet className="h-3 w-3" />Pagos
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Button variant="outline" size="sm" disabled className="w-full px-2 text-[11px]">
-                      <Wallet className="h-3 w-3" />Pagos
-                    </Button>
-                  )}
-                </div>
-              </article>
+              </>
+            );
+            const className = "flex flex-col rounded-lg border bg-card p-5 transition hover:border-primary/40 hover:shadow-sm";
+            return p.obra_id ? (
+              <Link key={p.id} to="/proyectos/$obraId" params={{ obraId: p.obra_id }} className={className}>
+                {cardInner}
+              </Link>
+            ) : (
+              <Link key={p.id} to="/cotizaciones/$id/editar" params={{ id: p.id }} className={className}>
+                {cardInner}
+              </Link>
             );
           })}
         </div>
