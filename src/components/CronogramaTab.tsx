@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Gantt, Task, ViewMode } from "gantt-task-react";
 import "gantt-task-react/dist/index.css";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Save, AlertTriangle, RefreshCw } from "lucide-react";
+import { Sparkles, Save, AlertTriangle, RefreshCw, ZoomIn, ZoomOut, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -21,11 +21,24 @@ const PARTIDA_ORDER = [
 ];
 
 const PARTIDA_COLORS: Record<string, string> = {
-  PRE: "#64748b", DEM: "#dc2626", EST: "#7c2d12", ALB: "#a16207",
-  HID: "#0284c7", SAN: "#0891b2", ELE: "#ca8a04", ACO: "#9333ea",
-  VOZ: "#7c3aed", ACB: "#059669", PIS: "#92400e", REC: "#0d9488",
-  PIN: "#db2777", ILU: "#facc15", CAR: "#78350f", HER: "#475569",
-  CAN: "#4338ca", MOB: "#a21caf", SUP: "#16a34a", LIM: "#94a3b8",
+  PRE: "#9ca3af", // gris
+  DEM: "#dc2626", // rojo
+  EST: "#78350f", // café
+  ALB: "#f97316", // naranja
+  HID: "#2563eb", // azul
+  SAN: "#166534", // verde oscuro
+  ELE: "#eab308", // amarillo
+  ACO: "#38bdf8", // celeste
+  ACB: "#7c3aed", // morado
+  PIS: "#86efac", // verde claro
+  REC: "#f9a8d4", // rosa
+  PIN: "#fdba74", // durazno
+  ILU: "#d4af37", // dorado
+  CAR: "#b08968", // café claro
+  HER: "#374151", // gris oscuro
+  CAN: "#93c5fd", // azul claro
+  LIM: "#6ee7b7", // verde menta
+  VOZ: "#7c3aed", MOB: "#a21caf", SUP: "#16a34a",
 };
 
 type Actividad = {
