@@ -14,6 +14,7 @@ export type Proyecto = {
   id: string;
   despacho_id: string;
   tipo_proyecto_id: string | null;
+  obra_id: string | null;
   folio: string;
   nombre_proyecto: string;
   cliente_nombre: string;
