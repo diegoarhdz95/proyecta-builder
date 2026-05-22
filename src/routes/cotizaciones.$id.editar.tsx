@@ -91,14 +91,30 @@ function Editor() {
   async function recalcularTotales() {
     const { data } = await supabase
       .from("proyecto_conceptos")
-      .select("subtotal")
+      .select("id, cantidad, unidad, precio_unitario_final, subtotal")
       .eq("proyecto_id", id);
-    const sub = (data ?? []).reduce((s, i) => s + Number(i.subtotal || 0), 0);
+    const rows = data ?? [];
+    const base = rows
+      .filter((r) => r.unidad !== "%")
+      .reduce((s, r) => s + Number(r.subtotal || 0), 0);
+    const puPct = base / 100;
+    const pctRows = rows.filter((r) => r.unidad === "%");
+    await Promise.all(
+      pctRows.map((r) => {
+        const newSub = Number(r.cantidad || 0) * puPct;
+        return supabase
+          .from("proyecto_conceptos")
+          .update({ precio_unitario_final: puPct, subtotal: newSub })
+          .eq("id", r.id);
+      }),
+    );
+    const sub = base + pctRows.reduce((s, r) => s + Number(r.cantidad || 0) * puPct, 0);
     const v = sub * IVA_RATE;
     await supabase.from("proyectos")
       .update({ subtotal: sub, iva: v, total_con_iva: sub + v })
       .eq("id", id);
     qc.invalidateQueries({ queryKey: ["proyecto", id] });
+    qc.invalidateQueries({ queryKey: ["proyecto_conceptos", id] });
   }
 
   async function getOrCreateProyectoPartida(partidaId: string): Promise<string> {
@@ -122,6 +138,7 @@ function Editor() {
     try {
       const ppId = await getOrCreateProyectoPartida(c.partida_id);
       const cantidad = 1;
+      const isPct = c.unidad === "%";
       const { error } = await supabase.from("proyecto_conceptos").insert({
         proyecto_id: id,
         proyecto_partida_id: ppId,
@@ -129,7 +146,7 @@ function Editor() {
         descripcion: c.descripcion,
         cantidad,
         unidad: c.unidad,
-        precio_unitario_final: c.precio_unitario,
+        precio_unitario_final: isPct ? 0 : c.precio_unitario,
       });
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ["proyecto_conceptos", id] });
@@ -141,8 +158,15 @@ function Editor() {
   }
 
   async function updateCantidad(item: ProyectoConcepto, cantidad: number) {
+    let value = Number.isFinite(cantidad) ? cantidad : 0;
+    if (item.unidad === "%") {
+      if (value < 1) value = 1;
+      if (value > 100) value = 100;
+    } else if (value < 0) {
+      value = 0;
+    }
     await supabase.from("proyecto_conceptos")
-      .update({ cantidad })
+      .update({ cantidad: value })
       .eq("id", item.id);
     qc.invalidateQueries({ queryKey: ["proyecto_conceptos", id] });
     await recalcularTotales();
@@ -274,14 +298,21 @@ function Editor() {
                   <td className="px-3 py-2">{it.descripcion}</td>
                   <td className="px-3 py-2 text-muted-foreground">{it.unidad}</td>
                   <td className="px-3 py-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      defaultValue={it.cantidad}
-                      onBlur={(e) => updateCantidad(it, Number(e.target.value))}
-                      className="h-8"
-                    />
+                    <div className="relative">
+                      <Input
+                        key={it.id + ":" + it.cantidad}
+                        type="number"
+                        min={it.unidad === "%" ? 1 : 0}
+                        max={it.unidad === "%" ? 100 : undefined}
+                        step={it.unidad === "%" ? "1" : "0.01"}
+                        defaultValue={it.cantidad}
+                        onBlur={(e) => updateCantidad(it, Number(e.target.value))}
+                        className={`h-8 ${it.unidad === "%" ? "pr-6" : ""}`}
+                      />
+                      {it.unidad === "%" && (
+                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{currency(Number(it.precio_unitario_final))}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">{currency(Number(it.subtotal))}</td>
