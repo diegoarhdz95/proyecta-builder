@@ -5,7 +5,7 @@ import "gantt-task-react/dist/index.css";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Save } from "lucide-react";
+import { Sparkles, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -297,6 +297,8 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
           />
         </div>
       )}
+
+      <AlertasCompra obraId={obraId} actividades={actividades ?? []} />
 
       <Sheet open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <SheetContent className="w-full sm:max-w-md">
