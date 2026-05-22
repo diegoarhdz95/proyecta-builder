@@ -18,7 +18,10 @@ function sanitizeFilename(name: string): string {
     .replace(/\s+/g, "-");
 }
 
-type Item = ProyectoConcepto & { proyecto_partida?: { partida_id: string } | null };
+type Item = ProyectoConcepto & {
+  proyecto_partida?: { partida_id: string } | null;
+  concepto?: { especificaciones?: string | null } | null;
+};
 
 export function generateCotizacionPDF(opts: {
   proyecto: Proyecto;
@@ -104,37 +107,47 @@ export function generateCotizacionPDF(opts: {
     const partida = partidaMap.get(pid);
     const partidaLabel = partida ? `${partida.clave} · ${partida.nombre}` : "Otros";
 
-    const body = group.map((it) => {
+    const body: RowInput[] = [];
+    group.forEach((it) => {
       counter += 1;
-      return [
-        String(counter),
-        it.descripcion,
-        "",
-        it.unidad,
-        String(Number(it.cantidad)),
-        currency(Number(it.precio_unitario_final)),
-        currency(Number(it.subtotal)),
-      ];
+      body.push([
+        { content: String(counter) },
+        { content: it.descripcion, styles: { fontStyle: "bold" } },
+        { content: it.unidad },
+        { content: String(Number(it.cantidad)) },
+        { content: currency(Number(it.precio_unitario_final)) },
+        { content: currency(Number(it.subtotal)) },
+      ]);
+      const spec = it.concepto?.especificaciones?.trim();
+      if (spec) {
+        body.push([
+          { content: "" },
+          {
+            content: spec,
+            styles: { textColor: [140, 140, 140], fontSize: 7, fontStyle: "italic", cellPadding: { top: 0, right: 4, bottom: 4, left: 4 } },
+          },
+          { content: "", colSpan: 4, styles: { cellPadding: { top: 0, right: 4, bottom: 4, left: 4 } } },
+        ]);
+      }
     });
     const subPartida = group.reduce((s, i) => s + Number(i.subtotal || 0), 0);
 
     autoTable(doc, {
       startY: cursorY,
-      head: [[{ content: partidaLabel.toUpperCase(), colSpan: 7, styles: { halign: "left", fillColor: NAVY, textColor: 255, fontStyle: "bold", fontSize: 9 } }],
-        ["No.", "Descripción", "Especificaciones", "Unidad", "Cant.", "P.U.", "Importe"]],
+      head: [[{ content: partidaLabel.toUpperCase(), colSpan: 6, styles: { halign: "left", fillColor: NAVY, textColor: 255, fontStyle: "bold", fontSize: 9 } }],
+        ["No.", "Descripción", "Unidad", "Cant.", "P.U.", "Importe"]],
       body,
-      foot: [[{ content: "Subtotal partida", colSpan: 6, styles: { halign: "right", fontStyle: "bold" } }, { content: currency(subPartida), styles: { halign: "right", fontStyle: "bold" } }]],
+      foot: [[{ content: "Subtotal partida", colSpan: 5, styles: { halign: "right", fontStyle: "bold" } }, { content: currency(subPartida), styles: { halign: "right", fontStyle: "bold" } }]],
       styles: { font: "helvetica", fontSize: 8, cellPadding: 4, textColor: [40, 40, 40] },
       headStyles: { fillColor: [240, 242, 247], textColor: NAVY, fontStyle: "bold" },
       footStyles: { fillColor: [248, 249, 252], textColor: NAVY },
       columnStyles: {
         0: { cellWidth: 28, halign: "center" },
         1: { cellWidth: "auto" },
-        2: { cellWidth: 80 },
-        3: { cellWidth: 40, halign: "center" },
-        4: { cellWidth: 40, halign: "right" },
-        5: { cellWidth: 60, halign: "right" },
-        6: { cellWidth: 70, halign: "right" },
+        2: { cellWidth: 50, halign: "center" },
+        3: { cellWidth: 50, halign: "right" },
+        4: { cellWidth: 70, halign: "right" },
+        5: { cellWidth: 80, halign: "right" },
       },
       margin: { left: margin, right: margin },
       theme: "grid",
