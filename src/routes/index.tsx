@@ -19,7 +19,9 @@ export const Route = createFileRoute("/")({
 
 const estadoStyles: Record<string, string> = {
   borrador: "bg-muted text-muted-foreground",
+  en_revision: "bg-yellow-100 text-yellow-800",
   enviada: "bg-blue-100 text-blue-700",
+  aceptada: "bg-green-100 text-green-700",
   aprobada: "bg-green-100 text-green-700",
   rechazada: "bg-red-100 text-red-700",
 };

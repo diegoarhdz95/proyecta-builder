@@ -10,6 +10,23 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const CHART_COLORS = {
   materiales: "#2563eb",
@@ -24,12 +41,19 @@ export const Route = createFileRoute("/proyectos/$obraId")({
   component: ProyectoPage,
 });
 
-const estadoBadge: Record<string, string> = {
-  borrador: "bg-muted text-muted-foreground",
-  enviada: "bg-blue-100 text-blue-700",
-  aprobada: "bg-green-100 text-green-700",
-  rechazada: "bg-red-100 text-red-700",
-};
+const ESTADOS: { value: string; label: string; cls: string }[] = [
+  { value: "borrador", label: "Borrador", cls: "bg-muted text-muted-foreground hover:bg-muted/80" },
+  { value: "en_revision", label: "En revisión", cls: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200" },
+  { value: "enviada", label: "Enviada", cls: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
+  { value: "aceptada", label: "Aceptada", cls: "bg-green-100 text-green-700 hover:bg-green-200" },
+  { value: "rechazada", label: "Rechazada", cls: "bg-red-100 text-red-700 hover:bg-red-200" },
+];
+
+function estadoMeta(value: string) {
+  // map legacy "aprobada" -> "aceptada"
+  const v = value === "aprobada" ? "aceptada" : value;
+  return ESTADOS.find((e) => e.value === v) ?? ESTADOS[0];
+}
 
 function currency(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(Number(n) || 0);
@@ -38,6 +62,7 @@ function currency(n: number) {
 function ProyectoPage() {
   const { obraId } = Route.useParams();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [tab, setTab] = useState<"cotizaciones" | "desglose" | "pagos">("cotizaciones");
 
   const { data: obra } = useQuery({
@@ -62,6 +87,24 @@ function ProyectoPage() {
       return data as Proyecto[];
     },
   });
+
+  async function cambiarEstado(id: string, estado: string) {
+    const { error } = await supabase.from("proyectos").update({ estado }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Estado actualizado");
+    qc.invalidateQueries({ queryKey: ["cotizaciones_obra", obraId] });
+    qc.invalidateQueries({ queryKey: ["dashboard_proyectos"] });
+  }
+
+  async function eliminarCotizacion(id: string, folio: string) {
+    const { error: cErr } = await supabase.from("proyecto_conceptos").delete().eq("proyecto_id", id);
+    if (cErr) return toast.error(cErr.message);
+    const { error } = await supabase.from("proyectos").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success(`Cotización ${folio} eliminada`);
+    qc.invalidateQueries({ queryKey: ["cotizaciones_obra", obraId] });
+    qc.invalidateQueries({ queryKey: ["dashboard_proyectos"] });
+  }
 
   async function nuevaCotizacion() {
     try {
@@ -159,12 +202,52 @@ function ProyectoPage() {
                       <td className="px-4 py-3 font-medium">{p.nombre_proyecto}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{currency(p.total_con_iva)}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize ${estadoBadge[p.estado] ?? estadoBadge.borrador}`}>
-                          {p.estado}
-                        </span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${estadoMeta(p.estado).cls}`}
+                            >
+                              {estadoMeta(p.estado).label}
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            {ESTADOS.map((e) => (
+                              <DropdownMenuItem key={e.value} onClick={() => cambiarEstado(p.id, e.value)}>
+                                <span className={`mr-2 inline-block h-2 w-2 rounded-full ${e.cls.split(" ")[0]}`} />
+                                {e.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Link to="/cotizaciones/$id/editar" params={{ id: p.id }} className="text-primary hover:underline">Editar</Link>
+                        <div className="flex items-center justify-end gap-3">
+                          <Link to="/cotizaciones/$id/editar" params={{ id: p.id }} className="text-primary hover:underline">Editar</Link>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" aria-label="Eliminar cotización">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Eliminar cotización?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta acción no se puede deshacer. Se eliminará la cotización {p.folio} y todos sus conceptos asociados.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => eliminarCotizacion(p.id, p.folio)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Eliminar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </td>
                     </tr>
                   ))}
