@@ -1,14 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import {
   supabase,
   DESPACHO_ID,
   DESPACHO_NOMBRE,
-  type Obra,
-  type TipoProyecto,
+  type Proyecto,
 } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Plus, BookOpen } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { Plus, BookOpen, Search, FileText, PieChart, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Proyectos · Grupo Proyecta" }] }),
@@ -16,39 +18,63 @@ export const Route = createFileRoute("/")({
 });
 
 const estadoStyles: Record<string, string> = {
-  activo: "bg-green-100 text-green-700",
-  pausado: "bg-yellow-100 text-yellow-700",
-  terminado: "bg-muted text-muted-foreground",
+  borrador: "bg-muted text-muted-foreground",
+  enviada: "bg-blue-100 text-blue-700",
+  aprobada: "bg-green-100 text-green-700",
+  rechazada: "bg-red-100 text-red-700",
 };
 
+function currency(n: number) {
+  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(Number(n) || 0);
+}
+
 function ProyectosList() {
-  const { data: obras, isLoading } = useQuery({
-    queryKey: ["obras"],
+  const [q, setQ] = useState("");
+
+  const { data: proyectos, isLoading } = useQuery({
+    queryKey: ["dashboard_proyectos"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("obras")
-        .select("*")
+        .from("proyectos")
+        .select("id, folio, nombre_proyecto, cliente_nombre, total_con_iva, estado, obra_id, created_at")
         .eq("despacho_id", DESPACHO_ID)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Obra[];
+      return data as Array<Proyecto & { created_at: string }>;
     },
   });
 
-  const { data: tipos } = useQuery({
-    queryKey: ["tipos_proyecto"],
+  const ids = (proyectos ?? []).map((p) => p.id);
+
+  const { data: pagos } = useQuery({
+    queryKey: ["dashboard_pagos", ids.join(",")],
+    enabled: ids.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("tipos_proyecto")
-        .select("id, nombre")
-        .eq("despacho_id", DESPACHO_ID);
+        .from("pagos_cliente")
+        .select("proyecto_id, monto")
+        .in("proyecto_id", ids);
       if (error) throw error;
-      return data as TipoProyecto[];
+      return data as Array<{ proyecto_id: string; monto: number }>;
     },
   });
 
-  const tipoNombre = (id: string | null) =>
-    id ? tipos?.find((t) => t.id === id)?.nombre ?? "—" : "—";
+  const pagadoPorProyecto = useMemo(() => {
+    const m = new Map<string, number>();
+    (pagos ?? []).forEach((p) => m.set(p.proyecto_id, (m.get(p.proyecto_id) ?? 0) + Number(p.monto || 0)));
+    return m;
+  }, [pagos]);
+
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!term) return proyectos ?? [];
+    return (proyectos ?? []).filter(
+      (p) =>
+        p.nombre_proyecto?.toLowerCase().includes(term) ||
+        p.cliente_nombre?.toLowerCase().includes(term) ||
+        p.folio?.toLowerCase().includes(term),
+    );
+  }, [proyectos, q]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -70,43 +96,84 @@ function ProyectosList() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <h2 className="mb-6 text-2xl font-semibold tracking-tight">Proyectos</h2>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-2xl font-semibold tracking-tight">Proyectos</h2>
+          <div className="relative w-full sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Buscar por proyecto, cliente o folio…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+        </div>
 
         {isLoading && <p className="text-sm text-muted-foreground">Cargando…</p>}
-        {!isLoading && obras?.length === 0 && (
+        {!isLoading && filtered.length === 0 && (
           <div className="rounded-lg border bg-card p-10 text-center text-sm text-muted-foreground">
-            Aún no tienes proyectos. Crea el primero con “Nuevo proyecto”.
+            {proyectos?.length === 0
+              ? "Aún no tienes proyectos. Crea el primero con \u201CNuevo proyecto\u201D."
+              : "Sin resultados para la búsqueda."}
           </div>
         )}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {obras?.map((o) => (
-            <Link
-              key={o.id}
-              to="/proyectos/$obraId"
-              params={{ obraId: o.id }}
-              className="group rounded-lg border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-muted/30"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="text-base font-semibold leading-tight group-hover:text-primary">
-                  {o.nombre}
-                </h3>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${
-                    estadoStyles[o.estado] ?? estadoStyles.activo
-                  }`}
-                >
-                  {o.estado}
-                </span>
-              </div>
-              <dl className="mt-3 space-y-1 text-xs text-muted-foreground">
-                <div><span className="text-foreground/70">Cliente:</span> {o.cliente_nombre}</div>
-                {o.domicilio && <div><span className="text-foreground/70">Domicilio:</span> {o.domicilio}</div>}
-                <div><span className="text-foreground/70">Tipo:</span> {tipoNombre(o.tipo_proyecto_id)}</div>
-                <div><span className="text-foreground/70">Creado:</span> {new Date(o.created_at).toLocaleDateString("es-MX")}</div>
-              </dl>
-            </Link>
-          ))}
+          {filtered.map((p) => {
+            const total = Number(p.total_con_iva || 0);
+            const pagado = pagadoPorProyecto.get(p.id) ?? 0;
+            const pct = total > 0 ? (pagado / total) * 100 : 0;
+            return (
+              <article key={p.id} className="flex flex-col rounded-lg border bg-card p-5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-base font-semibold leading-tight">{p.nombre_proyecto}</h3>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{p.cliente_nombre}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${estadoStyles[p.estado] ?? estadoStyles.borrador}`}>
+                    {p.estado}
+                  </span>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between text-xs">
+                  <span className="font-mono text-muted-foreground">{p.folio}</span>
+                  <span className="font-semibold tabular-nums">{currency(total)}</span>
+                </div>
+
+                <div className="mt-3">
+                  <div className="flex justify-between text-[11px] text-muted-foreground">
+                    <span>Cobrado {currency(pagado)}</span>
+                    <span>{pct.toFixed(0)}%</span>
+                  </div>
+                  <Progress value={Math.min(pct, 100)} className="mt-1.5 h-1.5" />
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-1.5">
+                  <Link to="/cotizaciones/$id/editar" params={{ id: p.id }}>
+                    <Button variant="outline" size="sm" className="w-full px-2 text-[11px]">
+                      <FileText className="h-3 w-3" />Cotización
+                    </Button>
+                  </Link>
+                  <Link to="/cotizaciones/$id/desglose" params={{ id: p.id }}>
+                    <Button variant="outline" size="sm" className="w-full px-2 text-[11px]">
+                      <PieChart className="h-3 w-3" />Desglose
+                    </Button>
+                  </Link>
+                  {p.obra_id ? (
+                    <Link to="/proyectos/$obraId" params={{ obraId: p.obra_id }}>
+                      <Button variant="outline" size="sm" className="w-full px-2 text-[11px]">
+                        <Wallet className="h-3 w-3" />Pagos
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button variant="outline" size="sm" disabled className="w-full px-2 text-[11px]">
+                      <Wallet className="h-3 w-3" />Pagos
+                    </Button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </div>
       </main>
     </div>
