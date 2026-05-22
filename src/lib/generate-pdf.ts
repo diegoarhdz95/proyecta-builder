@@ -9,6 +9,15 @@ function currency(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n || 0);
 }
 
+function sanitizeFilename(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
+}
+
 type Item = ProyectoConcepto & { proyecto_partida?: { partida_id: string } | null };
 
 export function generateCotizacionPDF(opts: {
@@ -200,7 +209,10 @@ export function generateCotizacionPDF(opts: {
     doc.text(`${i} / ${total_pages}`, pageW - margin, pageH - 24, { align: "right" });
   }
 
-  doc.save(`${proyecto.folio || "cotizacion"}.pdf`);
+  const folio = proyecto.folio || "cotizacion";
+  const nombreLimpio = sanitizeFilename(proyecto.nombre_proyecto || "");
+  const filename = nombreLimpio ? `${folio}-${nombreLimpio}.pdf` : `${folio}.pdf`;
+  doc.save(filename);
 }
 
 function pageHeader(doc: jsPDF, title: string, folio: string, margin: number, pageW: number) {
