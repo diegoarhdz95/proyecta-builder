@@ -94,9 +94,24 @@ function Editor() {
       .select("id, cantidad, unidad, precio_unitario_final, subtotal")
       .eq("proyecto_id", id);
     const rows = data ?? [];
-    const base = rows
-      .filter((r) => r.unidad !== "%")
-      .reduce((s, r) => s + Number(r.subtotal || 0), 0);
+    const nonPct = rows.filter((r) => r.unidad !== "%");
+    // Asegura que el subtotal de los conceptos normales esté calculado
+    await Promise.all(
+      nonPct.map((r) => {
+        const expected = Number(r.cantidad || 0) * Number(r.precio_unitario_final || 0);
+        if (Number(r.subtotal || 0) !== expected) {
+          return supabase
+            .from("proyecto_conceptos")
+            .update({ subtotal: expected })
+            .eq("id", r.id);
+        }
+        return Promise.resolve();
+      }),
+    );
+    const base = nonPct.reduce(
+      (s, r) => s + Number(r.cantidad || 0) * Number(r.precio_unitario_final || 0),
+      0,
+    );
     const puPct = base / 100;
     const pctRows = rows.filter((r) => r.unidad === "%");
     await Promise.all(
