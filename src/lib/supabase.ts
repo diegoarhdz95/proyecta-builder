@@ -23,7 +23,7 @@ export type Proyecto = {
   subtotal: number;
   iva: number;
   total_con_iva: number;
-  estado: "borrador" | "enviada" | "aprobada" | "rechazada";
+  estado: "borrador" | "en_revision" | "enviada" | "aceptada" | "aprobada" | "rechazada";
 };
 
 export type TipoProyecto = {
