@@ -11,6 +11,7 @@ import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { ExpedienteTab } from "@/components/ExpedienteTab";
+import { CronogramaTab } from "@/components/CronogramaTab";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,7 +65,7 @@ function ProyectoPage() {
   const { obraId } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "pagos" | "expediente">("cotizaciones");
+  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "pagos" | "expediente" | "cronograma">("cotizaciones");
 
   const { data: obra } = useQuery({
     queryKey: ["obra", obraId],
@@ -176,6 +177,7 @@ function ProyectoPage() {
             <TabsTrigger value="cotizaciones">Cotizaciones</TabsTrigger>
             <TabsTrigger value="desglose">Desglose financiero</TabsTrigger>
             <TabsTrigger value="pagos">Pagos</TabsTrigger>
+            <TabsTrigger value="cronograma">Cronograma</TabsTrigger>
             <TabsTrigger value="expediente">Expediente</TabsTrigger>
           </TabsList>
 
@@ -268,6 +270,10 @@ function ProyectoPage() {
 
           <TabsContent value="expediente" className="mt-6">
             <ExpedienteTab obraId={obraId} />
+          </TabsContent>
+
+          <TabsContent value="cronograma" className="mt-6">
+            <CronogramaTab obraId={obraId} />
           </TabsContent>
         </Tabs>
       </main>
