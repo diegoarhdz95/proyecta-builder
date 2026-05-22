@@ -31,6 +31,20 @@ function Editor() {
     },
   });
 
+  const { data: obra } = useQuery({
+    queryKey: ["proyecto_obra", proyecto?.obra_id],
+    enabled: !!proyecto?.obra_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("obras")
+        .select("id, nombre")
+        .eq("id", proyecto!.obra_id!)
+        .single();
+      if (error) throw error;
+      return data as { id: string; nombre: string };
+    },
+  });
+
   const { data: partidas } = useQuery({
     queryKey: ["partidas"],
     queryFn: async () => {
@@ -169,9 +183,27 @@ function Editor() {
       <header className="border-b bg-card">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-3 px-6 py-4">
           <div className="flex items-center gap-3">
-            <Link to="/" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /></Link>
+            {obra ? (
+              <Link to="/proyectos/$obraId" params={{ obraId: obra.id }} className="text-muted-foreground hover:text-foreground">
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            ) : (
+              <Link to="/" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /></Link>
+            )}
             <div>
-              <p className="font-mono text-xs text-muted-foreground">{proyecto?.folio}</p>
+              <nav className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Link to="/" className="hover:text-foreground">Proyectos</Link>
+                {obra && (
+                  <>
+                    <span>›</span>
+                    <Link to="/proyectos/$obraId" params={{ obraId: obra.id }} className="hover:text-foreground">
+                      {obra.nombre}
+                    </Link>
+                  </>
+                )}
+                <span>›</span>
+                <span className="text-foreground">{proyecto?.folio}</span>
+              </nav>
               <h1 className="text-base font-semibold">{proyecto?.nombre_proyecto}</h1>
             </div>
           </div>

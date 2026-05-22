@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as CatalogoRouteImport } from './routes/catalogo'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProyectosNuevoRouteImport } from './routes/proyectos.nuevo'
+import { Route as ProyectosObraIdRouteImport } from './routes/proyectos.$obraId'
 import { Route as CotizacionesNuevaRouteImport } from './routes/cotizaciones.nueva'
 import { Route as CotizacionesIdResumenRouteImport } from './routes/cotizaciones.$id.resumen'
 import { Route as CotizacionesIdEditarRouteImport } from './routes/cotizaciones.$id.editar'
@@ -24,6 +26,16 @@ const CatalogoRoute = CatalogoRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProyectosNuevoRoute = ProyectosNuevoRouteImport.update({
+  id: '/proyectos/nuevo',
+  path: '/proyectos/nuevo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProyectosObraIdRoute = ProyectosObraIdRouteImport.update({
+  id: '/proyectos/$obraId',
+  path: '/proyectos/$obraId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CotizacionesNuevaRoute = CotizacionesNuevaRouteImport.update({
@@ -51,6 +63,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/proyectos/$obraId': typeof ProyectosObraIdRoute
+  '/proyectos/nuevo': typeof ProyectosNuevoRoute
   '/cotizaciones/$id/desglose': typeof CotizacionesIdDesgloseRoute
   '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
   '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
@@ -59,6 +73,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/proyectos/$obraId': typeof ProyectosObraIdRoute
+  '/proyectos/nuevo': typeof ProyectosNuevoRoute
   '/cotizaciones/$id/desglose': typeof CotizacionesIdDesgloseRoute
   '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
   '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
@@ -68,6 +84,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/proyectos/$obraId': typeof ProyectosObraIdRoute
+  '/proyectos/nuevo': typeof ProyectosNuevoRoute
   '/cotizaciones/$id/desglose': typeof CotizacionesIdDesgloseRoute
   '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
   '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
@@ -78,6 +96,8 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/cotizaciones/nueva'
+    | '/proyectos/$obraId'
+    | '/proyectos/nuevo'
     | '/cotizaciones/$id/desglose'
     | '/cotizaciones/$id/editar'
     | '/cotizaciones/$id/resumen'
@@ -86,6 +106,8 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/cotizaciones/nueva'
+    | '/proyectos/$obraId'
+    | '/proyectos/nuevo'
     | '/cotizaciones/$id/desglose'
     | '/cotizaciones/$id/editar'
     | '/cotizaciones/$id/resumen'
@@ -94,6 +116,8 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/cotizaciones/nueva'
+    | '/proyectos/$obraId'
+    | '/proyectos/nuevo'
     | '/cotizaciones/$id/desglose'
     | '/cotizaciones/$id/editar'
     | '/cotizaciones/$id/resumen'
@@ -103,6 +127,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CatalogoRoute: typeof CatalogoRoute
   CotizacionesNuevaRoute: typeof CotizacionesNuevaRoute
+  ProyectosObraIdRoute: typeof ProyectosObraIdRoute
+  ProyectosNuevoRoute: typeof ProyectosNuevoRoute
   CotizacionesIdDesgloseRoute: typeof CotizacionesIdDesgloseRoute
   CotizacionesIdEditarRoute: typeof CotizacionesIdEditarRoute
   CotizacionesIdResumenRoute: typeof CotizacionesIdResumenRoute
@@ -122,6 +148,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/proyectos/nuevo': {
+      id: '/proyectos/nuevo'
+      path: '/proyectos/nuevo'
+      fullPath: '/proyectos/nuevo'
+      preLoaderRoute: typeof ProyectosNuevoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/proyectos/$obraId': {
+      id: '/proyectos/$obraId'
+      path: '/proyectos/$obraId'
+      fullPath: '/proyectos/$obraId'
+      preLoaderRoute: typeof ProyectosObraIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cotizaciones/nueva': {
@@ -159,6 +199,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CatalogoRoute: CatalogoRoute,
   CotizacionesNuevaRoute: CotizacionesNuevaRoute,
+  ProyectosObraIdRoute: ProyectosObraIdRoute,
+  ProyectosNuevoRoute: ProyectosNuevoRoute,
   CotizacionesIdDesgloseRoute: CotizacionesIdDesgloseRoute,
   CotizacionesIdEditarRoute: CotizacionesIdEditarRoute,
   CotizacionesIdResumenRoute: CotizacionesIdResumenRoute,
@@ -166,13 +208,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
