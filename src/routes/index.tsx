@@ -5,25 +5,22 @@ import {
   supabase,
   DESPACHO_ID,
   DESPACHO_NOMBRE,
-  type Proyecto,
+  type Obra,
 } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Plus, BookOpen, Search } from "lucide-react";
+import { Plus, BookOpen, Search, FilePlus2 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Proyectos · Grupo Proyecta" }] }),
   component: ProyectosList,
 });
 
-const estadoStyles: Record<string, string> = {
-  borrador: "bg-muted text-muted-foreground",
-  en_revision: "bg-yellow-100 text-yellow-800",
-  enviada: "bg-blue-100 text-blue-700",
-  aceptada: "bg-green-100 text-green-700",
-  aprobada: "bg-green-100 text-green-700",
-  rechazada: "bg-red-100 text-red-700",
+const estadoObraStyles: Record<string, string> = {
+  activo: "bg-green-100 text-green-700",
+  pausado: "bg-yellow-100 text-yellow-800",
+  terminado: "bg-muted text-muted-foreground",
 };
 
 function currency(n: number) {
@@ -33,50 +30,72 @@ function currency(n: number) {
 function ProyectosList() {
   const [q, setQ] = useState("");
 
-  const { data: proyectos, isLoading } = useQuery({
-    queryKey: ["dashboard_proyectos"],
+  const { data: obras, isLoading } = useQuery({
+    queryKey: ["dashboard_obras"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("proyectos")
-        .select("id, folio, nombre_proyecto, cliente_nombre, total_con_iva, estado, obra_id, created_at")
+        .from("obras")
+        .select("*")
         .eq("despacho_id", DESPACHO_ID)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Array<Proyecto & { created_at: string }>;
+      return data as Obra[];
     },
   });
 
-  const ids = (proyectos ?? []).map((p) => p.id);
+  const { data: cotizaciones } = useQuery({
+    queryKey: ["dashboard_cotizaciones"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("proyectos")
+        .select("id, obra_id, total_con_iva")
+        .eq("despacho_id", DESPACHO_ID);
+      if (error) throw error;
+      return data as Array<{ id: string; obra_id: string | null; total_con_iva: number }>;
+    },
+  });
+
+  const cotIds = (cotizaciones ?? []).map((c) => c.id);
 
   const { data: pagos } = useQuery({
-    queryKey: ["dashboard_pagos", ids.join(",")],
-    enabled: ids.length > 0,
+    queryKey: ["dashboard_pagos", cotIds.join(",")],
+    enabled: cotIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pagos_cliente")
         .select("proyecto_id, monto")
-        .in("proyecto_id", ids);
+        .in("proyecto_id", cotIds);
       if (error) throw error;
       return data as Array<{ proyecto_id: string; monto: number }>;
     },
   });
 
-  const pagadoPorProyecto = useMemo(() => {
-    const m = new Map<string, number>();
-    (pagos ?? []).forEach((p) => m.set(p.proyecto_id, (m.get(p.proyecto_id) ?? 0) + Number(p.monto || 0)));
+  const aggPorObra = useMemo(() => {
+    const pagadoPorCot = new Map<string, number>();
+    (pagos ?? []).forEach((p) =>
+      pagadoPorCot.set(p.proyecto_id, (pagadoPorCot.get(p.proyecto_id) ?? 0) + Number(p.monto || 0)),
+    );
+    const m = new Map<string, { total: number; pagado: number; count: number }>();
+    (cotizaciones ?? []).forEach((c) => {
+      if (!c.obra_id) return;
+      const cur = m.get(c.obra_id) ?? { total: 0, pagado: 0, count: 0 };
+      cur.total += Number(c.total_con_iva || 0);
+      cur.pagado += pagadoPorCot.get(c.id) ?? 0;
+      cur.count += 1;
+      m.set(c.obra_id, cur);
+    });
     return m;
-  }, [pagos]);
+  }, [cotizaciones, pagos]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return proyectos ?? [];
-    return (proyectos ?? []).filter(
-      (p) =>
-        p.nombre_proyecto?.toLowerCase().includes(term) ||
-        p.cliente_nombre?.toLowerCase().includes(term) ||
-        p.folio?.toLowerCase().includes(term),
+    if (!term) return obras ?? [];
+    return (obras ?? []).filter(
+      (o) =>
+        o.nombre?.toLowerCase().includes(term) ||
+        o.cliente_nombre?.toLowerCase().includes(term),
     );
-  }, [proyectos, q]);
+  }, [obras, q]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -117,51 +136,58 @@ function ProyectosList() {
         {isLoading && <p className="text-sm text-muted-foreground">Cargando…</p>}
         {!isLoading && filtered.length === 0 && (
           <div className="rounded-lg border bg-card p-10 text-center text-sm text-muted-foreground">
-            {proyectos?.length === 0
+            {obras?.length === 0
               ? "Aún no tienes proyectos. Crea el primero con \u201CNuevo proyecto\u201D."
               : "Sin resultados para la búsqueda."}
           </div>
         )}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p) => {
-            const total = Number(p.total_con_iva || 0);
-            const pagado = pagadoPorProyecto.get(p.id) ?? 0;
-            const pct = total > 0 ? (pagado / total) * 100 : 0;
-            const cardInner = (
-              <>
+          {filtered.map((o) => {
+            const agg = aggPorObra.get(o.id) ?? { total: 0, pagado: 0, count: 0 };
+            const pct = agg.total > 0 ? (agg.pagado / agg.total) * 100 : 0;
+            const sinCot = agg.count === 0;
+            return (
+              <Link
+                key={o.id}
+                to="/proyectos/$obraId"
+                params={{ obraId: o.id }}
+                className="flex flex-col rounded-lg border bg-card p-5 transition hover:border-primary/40 hover:shadow-sm"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="truncate text-base font-semibold leading-tight">{p.nombre_proyecto}</h3>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{p.cliente_nombre}</p>
+                    <h3 className="truncate text-base font-semibold leading-tight">{o.nombre}</h3>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{o.cliente_nombre}</p>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${estadoStyles[p.estado] ?? estadoStyles.borrador}`}>
-                    {p.estado}
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${estadoObraStyles[o.estado] ?? estadoObraStyles.activo}`}>
+                    {o.estado}
                   </span>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between text-xs">
-                  <span className="font-mono text-muted-foreground">{p.folio}</span>
-                  <span className="font-semibold tabular-nums">{currency(total)}</span>
-                </div>
-
-                <div className="mt-3">
-                  <div className="flex justify-between text-[11px] text-muted-foreground">
-                    <span>Cobrado {currency(pagado)}</span>
-                    <span>{pct.toFixed(0)}%</span>
+                {sinCot ? (
+                  <div className="mt-4 flex flex-1 items-end">
+                    <div className="inline-flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs font-medium text-primary">
+                      <FilePlus2 className="h-3.5 w-3.5" />
+                      Crear primera cotización
+                    </div>
                   </div>
-                  <Progress value={Math.min(pct, 100)} className="mt-1.5 h-1.5" />
-                </div>
-              </>
-            );
-            const className = "flex flex-col rounded-lg border bg-card p-5 transition hover:border-primary/40 hover:shadow-sm";
-            return p.obra_id ? (
-              <Link key={p.id} to="/proyectos/$obraId" params={{ obraId: p.obra_id }} className={className}>
-                {cardInner}
-              </Link>
-            ) : (
-              <Link key={p.id} to="/cotizaciones/$id/editar" params={{ id: p.id }} className={className}>
-                {cardInner}
+                ) : (
+                  <>
+                    <div className="mt-3 flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        {agg.count} {agg.count === 1 ? "cotización" : "cotizaciones"}
+                      </span>
+                      <span className="font-semibold tabular-nums">{currency(agg.total)}</span>
+                    </div>
+                    <div className="mt-3">
+                      <div className="flex justify-between text-[11px] text-muted-foreground">
+                        <span>Cobrado {currency(agg.pagado)}</span>
+                        <span>{pct.toFixed(0)}%</span>
+                      </div>
+                      <Progress value={Math.min(pct, 100)} className="mt-1.5 h-1.5" />
+                    </div>
+                  </>
+                )}
               </Link>
             );
           })}
