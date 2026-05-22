@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase, DESPACHO_ID, IVA_RATE, type Obra, type Proyecto } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -437,8 +437,8 @@ type Pago = {
 
 function PagosTab({ obraId }: { obraId: string }) {
   const qc = useQueryClient();
+  const [selectedId, setSelectedId] = useState<string>("");
   const [form, setForm] = useState({
-    proyecto_id: "",
     concepto: "",
     monto: "",
     fecha_pago: new Date().toISOString().slice(0, 10),
@@ -461,6 +461,10 @@ function PagosTab({ obraId }: { obraId: string }) {
 
   const ids = (proyectos ?? []).map((p) => p.id);
 
+  useEffect(() => {
+    if (!selectedId && ids.length > 0) setSelectedId(ids[0]);
+  }, [ids, selectedId]);
+
   const { data: pagos } = useQuery({
     queryKey: ["pagos_cliente", obraId, ids.join(",")],
     enabled: ids.length > 0,
@@ -480,15 +484,22 @@ function PagosTab({ obraId }: { obraId: string }) {
   const saldo = totalContratado - totalPagado;
   const pct = totalContratado > 0 ? (totalPagado / totalContratado) * 100 : 0;
 
+  const selectedProy = proyectos?.find((p) => p.id === selectedId);
+  const pagosSel = (pagos ?? []).filter((p) => p.proyecto_id === selectedId);
+  const totalSel = Number(selectedProy?.total_con_iva || 0);
+  const pagadoSel = pagosSel.reduce((s, p) => s + Number(p.monto || 0), 0);
+  const saldoSel = totalSel - pagadoSel;
+  const pctSel = totalSel > 0 ? (pagadoSel / totalSel) * 100 : 0;
+
   async function registrar(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.proyecto_id) return toast.error("Selecciona una cotización");
+    if (!selectedId) return toast.error("Selecciona una cotización");
     if (!form.concepto.trim()) return toast.error("Concepto requerido");
     const monto = Number(form.monto);
     if (!monto || monto <= 0) return toast.error("Monto inválido");
     try {
       const { error } = await supabase.from("pagos_cliente").insert({
-        proyecto_id: form.proyecto_id,
+        proyecto_id: selectedId,
         concepto: form.concepto.trim(),
         monto,
         fecha_pago: form.fecha_pago,
@@ -514,9 +525,11 @@ function PagosTab({ obraId }: { obraId: string }) {
 
   return (
     <div className="space-y-6">
+      <section>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Resumen general del proyecto</h3>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard label="Total contratado" value={totalContratado} />
-        <StatCard label="Total pagado" value={totalPagado} />
+        <StatCard label="Total cobrado" value={totalPagado} />
         <StatCard label="Saldo pendiente" value={saldo} />
         <div className="rounded-lg border bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">% cobrado</p>
@@ -524,8 +537,39 @@ function PagosTab({ obraId }: { obraId: string }) {
           <Progress value={Math.min(pct, 100)} className="mt-2" />
         </div>
       </div>
+      </section>
 
-      <section className="overflow-hidden rounded-lg border bg-card">
+      <section className="rounded-lg border bg-card p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="flex-1">
+            <label className="text-xs uppercase tracking-wide text-muted-foreground">Cotización</label>
+            <select
+              className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+            >
+              <option value="">— seleccionar —</option>
+              {proyectos?.map((p) => (
+                <option key={p.id} value={p.id}>{p.folio} · {p.nombre_proyecto}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {selectedProy && (
+          <>
+            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <StatCard label="Total cotización" value={totalSel} />
+              <StatCard label="Cobrado" value={pagadoSel} />
+              <StatCard label="Pendiente" value={saldoSel} />
+              <div className="rounded-lg border bg-card p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">% cobrado</p>
+                <p className="mt-2 text-lg font-semibold tabular-nums">{pctSel.toFixed(1)}%</p>
+                <Progress value={Math.min(pctSel, 100)} className="mt-2" />
+              </div>
+            </div>
+
+            <div className="mt-5 overflow-hidden rounded-lg border">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
@@ -538,10 +582,10 @@ function PagosTab({ obraId }: { obraId: string }) {
             </tr>
           </thead>
           <tbody>
-            {(pagos ?? []).length === 0 && (
+            {pagosSel.length === 0 && (
               <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Sin pagos registrados</td></tr>
             )}
-            {pagos?.map((p) => (
+            {pagosSel.map((p) => (
               <tr key={p.id} className="border-t">
                 <td className="px-4 py-2.5 tabular-nums">{p.fecha_pago}</td>
                 <td className="px-4 py-2.5">{p.concepto}</td>
@@ -557,24 +601,11 @@ function PagosTab({ obraId }: { obraId: string }) {
             ))}
           </tbody>
         </table>
-      </section>
+            </div>
 
-      <form onSubmit={registrar} className="rounded-lg border bg-card p-5">
-        <h3 className="text-sm font-semibold">Registrar nuevo pago</h3>
+            <form onSubmit={registrar} className="mt-5 rounded-lg border p-5">
+              <h3 className="text-sm font-semibold">Registrar nuevo pago en {selectedProy.folio}</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Cotización</label>
-            <select
-              className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              value={form.proyecto_id}
-              onChange={(e) => setForm({ ...form, proyecto_id: e.target.value })}
-            >
-              <option value="">— seleccionar —</option>
-              {proyectos?.map((p) => (
-                <option key={p.id} value={p.id}>{p.folio} · {p.nombre_proyecto}</option>
-              ))}
-            </select>
-          </div>
           <div>
             <label className="text-xs text-muted-foreground">Concepto</label>
             <Input
@@ -626,6 +657,9 @@ function PagosTab({ obraId }: { obraId: string }) {
           <Button type="submit"><Plus className="mr-2 h-4 w-4" />Registrar pago</Button>
         </div>
       </form>
+          </>
+        )}
+      </section>
     </div>
   );
 }
