@@ -209,7 +209,10 @@ export function generateCotizacionPDF(opts: {
     doc.text(`${i} / ${total_pages}`, pageW - margin, pageH - 24, { align: "right" });
   }
 
-  doc.save(`${proyecto.folio || "cotizacion"}.pdf`);
+  const folio = proyecto.folio || "cotizacion";
+  const nombreLimpio = sanitizeFilename(proyecto.nombre_proyecto || "");
+  const filename = nombreLimpio ? `${folio}-${nombreLimpio}.pdf` : `${folio}.pdf`;
+  doc.save(filename);
 }
 
 function pageHeader(doc: jsPDF, title: string, folio: string, margin: number, pageW: number) {
