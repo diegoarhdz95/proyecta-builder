@@ -5,7 +5,8 @@ import { supabase, DESPACHO_ID, IVA_RATE, type Partida, type Concepto, type Proy
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ArrowLeft, FileText, PieChart, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, FileText, PieChart, Plus, Trash2 } from "lucide-react";
+import { generateCotizacionPDF } from "@/lib/generate-pdf";
 
 export const Route = createFileRoute("/cotizaciones/$id/editar")({
   head: () => ({ meta: [{ title: "Editor de cotización · Grupo Proyecta" }] }),
@@ -139,6 +140,30 @@ function Editor() {
     await recalcularTotales();
   }
 
+  async function handleGeneratePDF() {
+    if (!proyecto) return;
+    try {
+      const { data: itemsFull, error: e1 } = await supabase
+        .from("proyecto_conceptos")
+        .select("*, proyecto_partida:proyecto_partida_id(partida_id)")
+        .eq("proyecto_id", id);
+      if (e1) throw e1;
+      const { data: allPartidas, error: e2 } = await supabase
+        .from("partidas")
+        .select("*")
+        .order("orden");
+      if (e2) throw e2;
+      generateCotizacionPDF({
+        proyecto,
+        items: (itemsFull ?? []) as never,
+        partidas: (allPartidas ?? []) as Partida[],
+      });
+      toast.success("PDF generado");
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -157,6 +182,7 @@ function Editor() {
             <Link to="/cotizaciones/$id/resumen" params={{ id }}>
               <Button variant="outline"><FileText className="mr-2 h-4 w-4" />Ver resumen</Button>
             </Link>
+            <Button onClick={handleGeneratePDF}><Download className="mr-2 h-4 w-4" />Generar PDF</Button>
           </div>
         </div>
       </header>
