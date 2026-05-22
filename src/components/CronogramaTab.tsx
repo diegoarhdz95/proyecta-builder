@@ -153,6 +153,20 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
   const [editing, setEditing] = useState<Actividad | null>(null);
   const [generating, setGenerating] = useState(false);
   const [selectedCotId, setSelectedCotId] = useState<string>("");
+  const [zoom, setZoom] = useState(1);
+  const [fitMode, setFitMode] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [wrapWidth, setWrapWidth] = useState(1200);
+
+  useEffect(() => {
+    if (!wrapRef.current) return;
+    const el = wrapRef.current;
+    const ro = new ResizeObserver(() => setWrapWidth(el.clientWidth));
+    ro.observe(el);
+    setWrapWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
 
   const { data: cotizaciones } = useQuery({
     queryKey: ["cronograma_proyectos", obraId],
@@ -291,23 +305,66 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
     }
   }
 
+  // Build tasks with collapsible partida headers (project rows)
   const tasks: Task[] = useMemo(() => {
-    return (actividades ?? []).map((a) => ({
-      id: a.id,
-      name: a.nombre_actividad,
-      start: new Date(a.fecha_inicio),
-      end: new Date(a.fecha_fin),
-      type: "task",
-      progress: 0,
-      isDisabled: false,
-      styles: {
-        backgroundColor: colorFor(a.partida_clave),
-        backgroundSelectedColor: colorFor(a.partida_clave),
-        progressColor: colorFor(a.partida_clave),
-        progressSelectedColor: colorFor(a.partida_clave),
-      },
-    }));
-  }, [actividades]);
+    const acts = actividades ?? [];
+    if (acts.length === 0) return [];
+    const groups = new Map<string, { clave: string; nombre: string; items: Actividad[] }>();
+    for (const a of acts) {
+      const clave = (a.partida_clave ?? "ZZZ").toUpperCase();
+      if (!groups.has(clave)) groups.set(clave, { clave, nombre: a.partida ?? clave, items: [] });
+      groups.get(clave)!.items.push(a);
+    }
+    const orderedClaves = Array.from(groups.keys()).sort((a, b) => {
+      const ia = PARTIDA_ORDER.indexOf(a);
+      const ib = PARTIDA_ORDER.indexOf(b);
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
+    const out: Task[] = [];
+    for (const clave of orderedClaves) {
+      const g = groups.get(clave)!;
+      const color = colorFor(clave);
+      const projectId = `grp-${clave}`;
+      const starts = g.items.map((a) => new Date(a.fecha_inicio).getTime());
+      const ends = g.items.map((a) => new Date(a.fecha_fin).getTime());
+      const isCollapsed = !!collapsed[projectId];
+      out.push({
+        id: projectId,
+        name: `${clave} · ${g.nombre}`,
+        start: new Date(Math.min(...starts)),
+        end: new Date(Math.max(...ends)),
+        type: "project",
+        progress: 0,
+        hideChildren: isCollapsed,
+        isDisabled: true,
+        styles: {
+          backgroundColor: color,
+          backgroundSelectedColor: color,
+          progressColor: color,
+          progressSelectedColor: color,
+        },
+      });
+      for (const a of g.items) {
+        out.push({
+          id: a.id,
+          name: a.nombre_actividad,
+          start: new Date(a.fecha_inicio),
+          end: new Date(a.fecha_fin),
+          type: "task",
+          progress: 0,
+          project: projectId,
+          isDisabled: false,
+          styles: {
+            backgroundColor: color,
+            backgroundSelectedColor: color,
+            progressColor: color,
+            progressSelectedColor: color,
+          },
+        });
+      }
+    }
+    return out;
+  }, [actividades, collapsed]);
 
   async function persistTask(id: string, start: Date, end: Date) {
     const dur = businessDaysBetween(start, end);
@@ -346,7 +403,29 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
 
   const hasCronograma = (actividades ?? []).length > 0;
   const rowHeight = 44;
-  const ganttHeight = Math.min(640, Math.max(500, (actividades ?? []).length * rowHeight + 60));
+  const visibleRows = tasks.length;
+  const ganttHeight = Math.min(640, Math.max(500, visibleRows * rowHeight + 60));
+
+  // Column width: zoom or fit-to-container
+  const baseCol = view === ViewMode.Month ? 200 : view === ViewMode.Week ? 100 : 50;
+  const listW = 380;
+  let columnWidth = Math.max(20, Math.round(baseCol * zoom));
+  if (fitMode && tasks.length > 0) {
+    const mins = tasks.map((t) => t.start.getTime());
+    const maxs = tasks.map((t) => t.end.getTime());
+    const start = new Date(Math.min(...mins));
+    const end = new Date(Math.max(...maxs));
+    let cols = 1;
+    if (view === ViewMode.Day) {
+      cols = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000) + 2);
+    } else if (view === ViewMode.Week) {
+      cols = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (86400000 * 7)) + 2);
+    } else {
+      cols = Math.max(1, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 2);
+    }
+    const avail = Math.max(400, wrapWidth - listW - 4);
+    columnWidth = Math.max(12, Math.floor(avail / cols));
+  }
 
   return (
     <div className="space-y-4">
@@ -399,17 +478,25 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
           Aún no hay cronograma. Presiona <strong>Generar cronograma con IA</strong> para crearlo a partir de los conceptos.
         </div>
       ) : (
-        <div className="w-full overflow-auto rounded-lg border bg-card gantt-wrap" style={{ maxHeight: 640 }}>
+        <div
+          ref={wrapRef}
+          className="gantt-wrap w-full overflow-auto rounded-lg border bg-card"
+          style={{ maxHeight: 640, scrollBehavior: "smooth", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}
+        >
           <Gantt
             tasks={tasks}
             viewMode={view}
             locale="es-MX"
-            listCellWidth="380px"
+            listCellWidth={`${listW}px`}
             rowHeight={rowHeight}
             ganttHeight={ganttHeight}
-            columnWidth={view === ViewMode.Month ? 200 : view === ViewMode.Week ? 100 : 50}
+            columnWidth={columnWidth}
             onDateChange={async (t) => { await persistTask(t.id, t.start, t.end); }}
+            onExpanderClick={(t) => {
+              setCollapsed((s) => ({ ...s, [t.id]: !s[t.id] }));
+            }}
             onClick={(t: Task) => {
+              if (t.type === "project") return;
               const a = (actividades ?? []).find((x) => x.id === t.id);
               if (a) setEditing({ ...a });
             }}
@@ -424,17 +511,37 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
                 <div className="px-2 text-right" style={{ width: "15%" }}>Días</div>
               </div>
             )}
-            TaskListTable={({ rowHeight: rh, rowWidth, fontFamily, fontSize, tasks: ts }) => (
+            TaskListTable={({ rowHeight: rh, rowWidth, fontFamily, fontSize, tasks: ts, onExpanderClick }) => (
               <div style={{ fontFamily, fontSize }}>
                 {ts.map((t) => {
+                  const isProject = t.type === "project";
                   const dur = businessDaysBetween(t.start, t.end);
+                  if (isProject) {
+                    const isOpen = !collapsed[t.id];
+                    return (
+                      <div
+                        key={t.id}
+                        className="flex cursor-pointer items-center border-b bg-slate-900 text-white hover:bg-slate-800"
+                        style={{ height: rh, width: rowWidth }}
+                        onClick={() => onExpanderClick(t)}
+                      >
+                        <div className="flex items-center gap-2 px-3 font-semibold" style={{ width: "55%" }}>
+                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          <span className="truncate" title={t.name}>{t.name}</span>
+                        </div>
+                        <div className="px-2 tabular-nums text-white/80" style={{ width: "15%" }}>{fmtFecha(toISO(t.start))}</div>
+                        <div className="px-2 tabular-nums text-white/80" style={{ width: "15%" }}>{fmtFecha(toISO(t.end))}</div>
+                        <div className="px-2 text-right tabular-nums" style={{ width: "15%" }}>{dur}</div>
+                      </div>
+                    );
+                  }
                   return (
                     <div
                       key={t.id}
                       className="flex items-center border-b last:border-b-0 hover:bg-muted/30"
                       style={{ height: rh, width: rowWidth }}
                     >
-                      <div className="truncate px-3" style={{ width: "55%" }} title={t.name}>
+                      <div className="truncate px-3 pl-8" style={{ width: "55%" }} title={t.name}>
                         {truncate(t.name, 25)}
                       </div>
                       <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "15%" }}>
