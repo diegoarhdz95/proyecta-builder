@@ -293,7 +293,13 @@ function Editor() {
               </tr>
             </thead>
             <tbody>
-              {items?.map((it) => (
+              {[...(items ?? [])]
+                .sort((a, b) => {
+                  const ap = a.unidad === "%" ? 1 : 0;
+                  const bp = b.unidad === "%" ? 1 : 0;
+                  return ap - bp;
+                })
+                .map((it) => (
                 <tr key={it.id} className="border-t">
                   <td className="px-3 py-2">{it.descripcion}</td>
                   <td className="px-3 py-2 text-muted-foreground">{it.unidad}</td>
@@ -314,7 +320,12 @@ function Editor() {
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{currency(Number(it.precio_unitario_final))}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {currency(Number(it.precio_unitario_final))}
+                    {it.unidad === "%" && (
+                      <span className="ml-1 text-[10px] text-muted-foreground">(por 1%)</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">{currency(Number(it.subtotal))}</td>
                   <td className="px-2">
                     <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)} className="h-7 w-7 text-muted-foreground hover:text-destructive">
