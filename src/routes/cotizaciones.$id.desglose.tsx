@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
@@ -81,9 +80,6 @@ function Desglose() {
               <h1 className="text-base font-semibold">Desglose financiero · {d?.nombre_proyecto}</h1>
             </div>
           </div>
-          <Link to="/cotizaciones/$id/editar" params={{ id }}>
-            <Button variant="outline">Volver al editor</Button>
-          </Link>
         </div>
       </header>
 
