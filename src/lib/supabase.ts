@@ -30,6 +30,20 @@ export type TipoProyecto = {
   nombre: string;
 };
 
+export type Obra = {
+  id: string;
+  despacho_id: string;
+  nombre: string;
+  cliente_nombre: string;
+  cliente_email: string | null;
+  cliente_telefono: string | null;
+  domicilio: string | null;
+  tipo_proyecto_id: string | null;
+  descripcion: string | null;
+  estado: "activo" | "pausado" | "terminado";
+  created_at: string;
+};
+
 export type Partida = {
   id: string;
   clave: string;
