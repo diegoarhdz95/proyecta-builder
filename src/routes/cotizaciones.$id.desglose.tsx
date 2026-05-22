@@ -81,9 +81,6 @@ function Desglose() {
               <h1 className="text-base font-semibold">Desglose financiero · {d?.nombre_proyecto}</h1>
             </div>
           </div>
-          <Link to="/cotizaciones/$id/editar" params={{ id }}>
-            <Button variant="outline">Volver al editor</Button>
-          </Link>
         </div>
       </header>
 
