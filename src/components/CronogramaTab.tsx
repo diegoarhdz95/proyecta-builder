@@ -5,7 +5,7 @@ import "gantt-task-react/dist/index.css";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Save } from "lucide-react";
+import { Sparkles, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -298,6 +298,8 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         </div>
       )}
 
+      <AlertasCompra obraId={obraId} actividades={actividades ?? []} />
+
       <Sheet open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <SheetContent className="w-full sm:max-w-md">
           <SheetHeader>
@@ -383,5 +385,157 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+type MaterialProv = {
+  id: string;
+  material: string;
+  concepto_id: string | null;
+  tiempo_entrega_dias: number;
+  proveedor_id: string;
+  proveedores?: { nombre: string } | null;
+};
+
+type Estado = "pendiente" | "pedido" | "recibido";
+
+const ESTADO_STYLES: Record<Estado, string> = {
+  pendiente: "bg-muted text-muted-foreground",
+  pedido: "bg-blue-100 text-blue-700",
+  recibido: "bg-green-100 text-green-700",
+};
+
+function AlertasCompra({ obraId, actividades }: { obraId: string; actividades: Actividad[] }) {
+  const qc = useQueryClient();
+  const conceptoIds = Array.from(new Set(actividades.map((a) => a.concepto_id).filter(Boolean) as string[]));
+
+  const { data: materiales } = useQuery({
+    queryKey: ["materiales_for_cron", conceptoIds.join(",")],
+    enabled: conceptoIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("materiales_proveedor")
+        .select("id, material, concepto_id, tiempo_entrega_dias, proveedor_id, proveedores:proveedor_id(nombre)")
+        .in("concepto_id", conceptoIds);
+      if (error) throw error;
+      return data as unknown as MaterialProv[];
+    },
+  });
+
+  const actividadIds = actividades.map((a) => a.id);
+  const { data: estados } = useQuery({
+    queryKey: ["alertas_estado", obraId, actividadIds.join(",")],
+    enabled: actividadIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("alertas_compra_estado")
+        .select("*")
+        .in("actividad_id", actividadIds);
+      if (error) throw error;
+      return data as { id: string; actividad_id: string; material_id: string; estado: Estado }[];
+    },
+  });
+
+  const filas = useMemo(() => {
+    const out: Array<{
+      key: string;
+      actividad: Actividad;
+      material: MaterialProv;
+      fechaPedido: Date;
+      diasAnticipacion: number;
+      estado: Estado;
+      urgente: boolean;
+    }> = [];
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const limite = addDays(hoy, 3);
+
+    for (const a of actividades) {
+      const mats = (materiales ?? []).filter((m) => m.concepto_id === a.concepto_id);
+      for (const m of mats) {
+        const fi = new Date(a.fecha_inicio);
+        const fp = addDays(fi, -m.tiempo_entrega_dias);
+        const e = (estados ?? []).find((x) => x.actividad_id === a.id && x.material_id === m.id);
+        const diff = Math.round((fi.getTime() - hoy.getTime()) / 86400000);
+        out.push({
+          key: `${a.id}-${m.id}`,
+          actividad: a,
+          material: m,
+          fechaPedido: fp,
+          diasAnticipacion: diff,
+          estado: (e?.estado as Estado) ?? "pendiente",
+          urgente: fp <= limite && (e?.estado ?? "pendiente") !== "recibido",
+        });
+      }
+    }
+    return out.sort((x, y) => x.fechaPedido.getTime() - y.fechaPedido.getTime());
+  }, [actividades, materiales, estados]);
+
+  async function setEstado(actividadId: string, materialId: string, estado: Estado) {
+    const { error } = await supabase
+      .from("alertas_compra_estado")
+      .upsert(
+        { actividad_id: actividadId, material_id: materialId, estado },
+        { onConflict: "actividad_id,material_id" },
+      );
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["alertas_estado", obraId] });
+  }
+
+  return (
+    <section className="space-y-3">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        Alertas de compra
+      </h3>
+      <div className="overflow-hidden rounded-lg border bg-card">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3">Material</th>
+              <th className="px-4 py-3">Proveedor</th>
+              <th className="px-4 py-3">Pedir antes del</th>
+              <th className="px-4 py-3">Para actividad</th>
+              <th className="px-4 py-3 text-right">Días anticipación</th>
+              <th className="px-4 py-3">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.length === 0 && (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                No hay alertas. Asocia materiales de proveedores a los conceptos para verlas aquí.
+              </td></tr>
+            )}
+            {filas.map((f) => (
+              <tr
+                key={f.key}
+                className={`border-t ${f.urgente ? "bg-red-50 text-red-900" : ""}`}
+              >
+                <td className="px-4 py-2.5 font-medium">
+                  <div className="flex items-center gap-2">
+                    {f.urgente && <AlertTriangle className="h-4 w-4 text-red-600" />}
+                    {f.material.material}
+                  </div>
+                </td>
+                <td className="px-4 py-2.5">{f.material.proveedores?.nombre ?? "—"}</td>
+                <td className="px-4 py-2.5 tabular-nums">{toISO(f.fechaPedido)}</td>
+                <td className="px-4 py-2.5 text-muted-foreground">{f.actividad.nombre_actividad}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{f.diasAnticipacion} d</td>
+                <td className="px-4 py-2.5">
+                  <select
+                    value={f.estado}
+                    onChange={(e) => setEstado(f.actividad.id, f.material.id, e.target.value as Estado)}
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${ESTADO_STYLES[f.estado]}`}
+                  >
+                    <option value="pendiente">Pendiente</option>
+                    <option value="pedido">Pedido</option>
+                    <option value="recibido">Recibido</option>
+                  </select>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
