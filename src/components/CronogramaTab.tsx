@@ -31,6 +31,7 @@ const PARTIDA_COLORS: Record<string, string> = {
 type Actividad = {
   id: string;
   proyecto_id: string;
+  cotizacion_id: string | null;
   concepto_id: string | null;
   nombre_actividad: string;
   partida: string | null;
@@ -60,29 +61,35 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
   const [view, setView] = useState<ViewMode>(ViewMode.Week);
   const [editing, setEditing] = useState<Actividad | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [selectedCotId, setSelectedCotId] = useState<string>("");
 
   const { data: cotizaciones } = useQuery({
     queryKey: ["cronograma_proyectos", obraId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("proyectos")
-        .select("id")
-        .eq("obra_id", obraId);
+        .select("id, folio, nombre_proyecto")
+        .eq("obra_id", obraId)
+        .order("folio", { ascending: false });
       if (error) throw error;
-      return data as { id: string }[];
+      return data as { id: string; folio: string; nombre_proyecto: string }[];
     },
   });
 
   const proyectoIds = (cotizaciones ?? []).map((p) => p.id);
 
+  useEffect(() => {
+    if (!selectedCotId && proyectoIds.length > 0) setSelectedCotId(proyectoIds[0]);
+  }, [proyectoIds, selectedCotId]);
+
   const { data: actividades } = useQuery({
-    queryKey: ["cronograma", obraId, proyectoIds.join(",")],
-    enabled: proyectoIds.length > 0,
+    queryKey: ["cronograma", obraId, selectedCotId],
+    enabled: !!selectedCotId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cronograma_actividades")
         .select("*")
-        .in("proyecto_id", proyectoIds)
+        .eq("cotizacion_id", selectedCotId)
         .order("orden", { ascending: true });
       if (error) throw error;
       return data as Actividad[];
@@ -90,13 +97,13 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
   });
 
   async function generar() {
-    if (proyectoIds.length === 0) return toast.error("No hay cotizaciones");
+    if (!selectedCotId) return toast.error("Selecciona una cotización");
     setGenerating(true);
     try {
       const { data: pc, error } = await supabase
         .from("proyecto_conceptos")
         .select("id, proyecto_id, concepto_id, descripcion, cantidad, unidad, concepto:concepto_id(rendimiento, partida_id, partidas:partida_id(clave, nombre))")
-        .in("proyecto_id", proyectoIds);
+        .eq("proyecto_id", selectedCotId);
       if (error) throw error;
 
       type Row = {
@@ -127,7 +134,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         });
 
       if (filas.length === 0) {
-        toast.error("No hay conceptos en las cotizaciones");
+        toast.error("Esta cotización no tiene conceptos");
         return;
       }
 
@@ -162,6 +169,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
           const ff = addDays(fi, dias);
           nuevas.push({
             proyecto_id: it.proyecto_id,
+            cotizacion_id: it.proyecto_id,
             concepto_id: it.concepto_id,
             nombre_actividad: it.descripcion,
             partida: it.partidaNombre,
@@ -177,8 +185,8 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         cursor = maxFin;
       }
 
-      // borrar previas y guardar
-      await supabase.from("cronograma_actividades").delete().in("proyecto_id", proyectoIds);
+      // borrar previas de ESTA cotización y guardar
+      await supabase.from("cronograma_actividades").delete().eq("cotizacion_id", selectedCotId);
       const { error: insErr } = await supabase.from("cronograma_actividades").insert(nuevas);
       if (insErr) throw insErr;
 
@@ -246,7 +254,20 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="flex-1">
+          <label className="text-xs uppercase tracking-wide text-muted-foreground">Cotización</label>
+          <select
+            className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:max-w-md"
+            value={selectedCotId}
+            onChange={(e) => setSelectedCotId(e.target.value)}
+          >
+            <option value="">— seleccionar —</option>
+            {cotizaciones?.map((c) => (
+              <option key={c.id} value={c.id}>{c.folio} · {c.nombre_proyecto}</option>
+            ))}
+          </select>
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">Vista:</span>
           {[
@@ -263,11 +284,11 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
               {o.l}
             </Button>
           ))}
+          <Button onClick={generar} disabled={generating || !selectedCotId}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            {generating ? "Generando…" : "Generar cronograma con IA"}
+          </Button>
         </div>
-        <Button onClick={generar} disabled={generating}>
-          <Sparkles className="mr-2 h-4 w-4" />
-          {generating ? "Generando…" : "Generar cronograma con IA"}
-        </Button>
       </div>
 
       {tasks.length === 0 ? (
