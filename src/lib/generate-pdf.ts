@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import autoTable, { type RowInput } from "jspdf-autotable";
 import { DESPACHO_NOMBRE, IVA_RATE, type Proyecto, type Partida, type ProyectoConcepto } from "./supabase";
 
 const NAVY: [number, number, number] = [15, 23, 66];
