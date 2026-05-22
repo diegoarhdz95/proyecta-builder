@@ -453,12 +453,27 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
             <Button
               key={o.l}
               size="sm"
-              variant={view === o.v ? "default" : "outline"}
-              onClick={() => setView(o.v)}
+              variant={!fitMode && view === o.v ? "default" : "outline"}
+              onClick={() => { setFitMode(false); setView(o.v); }}
             >
               {o.l}
             </Button>
           ))}
+          <Button
+            size="sm"
+            variant={fitMode ? "default" : "outline"}
+            onClick={() => { setFitMode(true); }}
+            title="Ajustar todo el cronograma al ancho disponible"
+          >
+            Proyecto completo
+          </Button>
+          <div className="mx-1 h-5 w-px bg-border" />
+          <Button size="sm" variant="outline" onClick={() => { setFitMode(false); setZoom((z) => Math.max(0.25, +(z / 1.25).toFixed(2))); }} title="Alejar">
+            <ZoomOut className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => { setFitMode(false); setZoom((z) => Math.min(4, +(z * 1.25).toFixed(2))); }} title="Acercar">
+            <ZoomIn className="h-3.5 w-3.5" />
+          </Button>
           {hasCronograma ? (
             <Button size="sm" variant="outline" onClick={generar} disabled={generating || !selectedCotId} title="Regenerar reemplaza el cronograma actual">
               <RefreshCw className={`mr-2 h-3.5 w-3.5 ${generating ? "animate-spin" : ""}`} />
@@ -472,6 +487,12 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
           )}
         </div>
       </div>
+
+      <style>{`
+        .gantt-wrap { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+        .gantt-wrap *::-webkit-scrollbar { height: 10px; width: 10px; }
+        .gantt-wrap *::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 8px; }
+      `}</style>
 
       {!hasCronograma ? (
         <div className="rounded-lg border bg-card p-10 text-center text-sm text-muted-foreground">
