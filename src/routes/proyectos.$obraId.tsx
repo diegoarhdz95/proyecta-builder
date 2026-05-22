@@ -9,6 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+
+const CHART_COLORS = {
+  materiales: "#2563eb",
+  mano_obra: "#16a34a",
+  herramienta: "#eab308",
+  indirectos: "#ea580c",
+  utilidad: "#7c3aed",
+};
 
 export const Route = createFileRoute("/proyectos/$obraId")({
   head: () => ({ meta: [{ title: "Proyecto · Grupo Proyecta" }] }),
@@ -239,6 +248,40 @@ function DesgloseObra({ obraId }: { obraId: string }) {
         <Card label="Tu utilidad" value={data.total_utilidad} />
         <Card label="Total con IVA" value={data.total_con_iva} highlight />
       </div>
+      <section className="rounded-lg border bg-card p-6">
+        <h2 className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Proporción sobre subtotal sin IVA
+        </h2>
+        <div className="h-[340px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={[
+                  { name: "Materiales", value: data.total_materiales, color: CHART_COLORS.materiales },
+                  { name: "Mano de obra", value: data.total_mano_obra, color: CHART_COLORS.mano_obra },
+                  { name: "Herramienta", value: data.total_herramienta, color: CHART_COLORS.herramienta },
+                  { name: "Indirectos", value: data.total_indirectos, color: CHART_COLORS.indirectos },
+                  { name: "Utilidad", value: data.total_utilidad, color: CHART_COLORS.utilidad },
+                ]}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={80}
+                outerRadius={130}
+                paddingAngle={2}
+                label={(e: { name: string; value: number }) =>
+                  `${e.name} ${pct(e.value).toFixed(1)}%`
+                }
+              >
+                {[CHART_COLORS.materiales, CHART_COLORS.mano_obra, CHART_COLORS.herramienta, CHART_COLORS.indirectos, CHART_COLORS.utilidad].map((c) => (
+                  <Cell key={c} fill={c} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v: number) => currency(Number(v))} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
       <section className="overflow-hidden rounded-lg border bg-card">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
