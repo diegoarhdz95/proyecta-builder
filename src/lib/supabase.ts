@@ -24,6 +24,8 @@ export type Proyecto = {
   iva: number;
   total_con_iva: number;
   estado: "borrador" | "en_revision" | "enviada" | "aceptada" | "aprobada" | "rechazada";
+  tiempo_ejecucion_texto?: string | null;
+  tiempo_ejecucion_incluir?: boolean | null;
 };
 
 export type TipoProyecto = {
