@@ -254,6 +254,12 @@ function Editor() {
         .eq("id", id)
         .single();
       if (e0) throw e0;
+      console.log("[PDF] proyecto data:", {
+        id,
+        tiempo_ejecucion_texto: (proyectoFresh as { tiempo_ejecucion_texto?: string | null })?.tiempo_ejecucion_texto,
+        tiempo_ejecucion_incluir: (proyectoFresh as { tiempo_ejecucion_incluir?: boolean | null })?.tiempo_ejecucion_incluir,
+        incluir_tiempo_pdf: (proyectoFresh as { incluir_tiempo_pdf?: boolean | null })?.incluir_tiempo_pdf,
+      });
       const { data: itemsFull, error: e1 } = await supabase
         .from("proyecto_conceptos")
         .select("*, proyecto_partida:proyecto_partida_id(partida_id), concepto:concepto_id(especificaciones)")
