@@ -817,6 +817,51 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={genModalOpen} onOpenChange={setGenModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Generar cronograma</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Fecha de inicio de obra</label>
+              <Input
+                type="date"
+                value={genStartDate}
+                onChange={(e) => setGenStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Factor de holgura</label>
+              <Input
+                type="number"
+                min={1}
+                max={2}
+                step={0.05}
+                value={genHolgura}
+                onChange={(e) => setGenHolgura(Number(e.target.value) || 1)}
+              />
+              <p className="text-[10px] text-muted-foreground">Rango 1.00 a 2.00 (ej. 1.20 = +20%)</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setGenModalOpen(false)} disabled={generating}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              disabled={generating || !selectedCotId}
+              onClick={async () => {
+                setGenModalOpen(false);
+                await generar();
+              }}
+            >
+              {generating ? "Generando…" : "Generar cronograma"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
