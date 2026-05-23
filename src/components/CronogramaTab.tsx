@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Gantt, Task, ViewMode } from "gantt-task-react";
-import "gantt-task-react/dist/index.css";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Save, AlertTriangle, RefreshCw, ZoomIn, ZoomOut, ChevronDown, ChevronRight } from "lucide-react";
+import { Sparkles, Save, AlertTriangle, RefreshCw, ZoomIn, ZoomOut, ChevronDown, ChevronRight, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -13,6 +11,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+
+type GView = "day" | "week" | "month";
+const BASE_CELL: Record<GView, number> = { day: 36, week: 16, month: 6 };
+const ROW_H = 30;
+const HEADER_H = 46;
+const LEFT_W = 380;
+const clamp = (a: number, v: number, b: number) => Math.max(a, Math.min(b, v));
 
 const PARTIDA_ORDER = [
   "PRE","DEM","EST","ALB","HID","SAN","ELE",
