@@ -271,38 +271,24 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         partidaNombre: string;
       };
 
-      const filas: Row[] = (pc ?? [])
-        .filter((r) => (r.unidad || "").trim() !== "%")
-        .map((r) => {
-          const c = r.concepto as { rendimiento?: number; partidas?: { clave?: string; nombre?: string } } | null;
-          return {
-            proyecto_id: r.proyecto_id as string,
-            concepto_id: r.concepto_id as string,
-            descripcion: r.descripcion as string,
-            cantidad: Number(r.cantidad) || 0,
-            unidad: r.unidad as string,
-            rendimiento: Number(c?.rendimiento) || 1,
-            partidaClave: (c?.partidas?.clave ?? "ZZZ").toUpperCase(),
-            partidaNombre: c?.partidas?.nombre ?? "Sin partida",
-          };
-        });
+      const filas: Row[] = (pc ?? []).map((r) => {
+        const c = r.concepto as { rendimiento?: number; partidas?: { clave?: string; nombre?: string } } | null;
+        return {
+          proyecto_id: r.proyecto_id as string,
+          concepto_id: r.concepto_id as string,
+          descripcion: r.descripcion as string,
+          cantidad: Number(r.cantidad) || 0,
+          unidad: (r.unidad as string) || "",
+          rendimiento: Number(c?.rendimiento) || 1,
+          partidaClave: (c?.partidas?.clave ?? "ZZZ").toUpperCase(),
+          partidaNombre: c?.partidas?.nombre ?? "Sin partida",
+        };
+      });
 
       if (filas.length === 0) {
         toast.error("Esta cotización no tiene conceptos");
         return;
       }
-
-      const grupos = new Map<string, Row[]>();
-      for (const f of filas) {
-        if (!grupos.has(f.partidaClave)) grupos.set(f.partidaClave, []);
-        grupos.get(f.partidaClave)!.push(f);
-      }
-
-      const orderedClaves = Array.from(grupos.keys()).sort((a, b) => {
-        const ia = PARTIDA_ORDER.indexOf(a);
-        const ib = PARTIDA_ORDER.indexOf(b);
-        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-      });
 
       const startRaw = new Date(`${genStartDate}T00:00:00`);
       if (isNaN(startRaw.getTime())) {
@@ -310,27 +296,127 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         setGenerating(false);
         return;
       }
-      const start = nextBusinessDay(startRaw);
-
-      let cursor = new Date(start);
-      let orden = 0;
-      const nuevas: Omit<Actividad, "id">[] = [];
+      const projectStart = nextBusinessDay(startRaw);
       const HOLGURA = clamp(1.0, Number(genHolgura) || 1.2, 2.0);
 
-      for (const clave of orderedClaves) {
-        const items = grupos.get(clave)!;
-        let maxFin = new Date(cursor);
+      // ---------- Agrupar por partida ----------
+      const grupos = new Map<string, Row[]>();
+      for (const f of filas) {
+        if (!grupos.has(f.partidaClave)) grupos.set(f.partidaClave, []);
+        grupos.get(f.partidaClave)!.push(f);
+      }
+
+      // ---------- Calcular duración por concepto (en días hábiles) ----------
+      function duracionConcepto(it: Row): number {
+        const u = (it.unidad || "").trim().toLowerCase();
+        if (u === "mes" || u === "meses") return Math.max(1, it.cantidad * 22);
+        if (u === "sem" || u === "semana" || u === "semanas") return Math.max(0.5, it.cantidad * 5.5);
+        if (u === "%") return 0; // se ajusta luego al span total
+        const base = it.rendimiento > 0 ? it.cantidad / it.rendimiento : it.cantidad;
+        return Math.max(0.5, Math.round(base * HOLGURA * 2) / 2);
+      }
+
+      // ---------- Resolver orden topológico de partidas presentes ----------
+      const presentes = new Set(grupos.keys());
+      const orderedClaves: string[] = [];
+      // Orden base: PARTIDA_ORDER, luego desconocidas al final.
+      const baseOrder = [
+        ...PARTIDA_ORDER.filter((c) => presentes.has(c) && c !== ALWAYS_LAST && !SPAN_ALL.has(c)),
+        ...Array.from(presentes).filter(
+          (c) => !PARTIDA_ORDER.includes(c) && c !== ALWAYS_LAST && !SPAN_ALL.has(c),
+        ),
+      ];
+      for (const c of baseOrder) orderedClaves.push(c);
+
+      // ---------- Programar ----------
+      const partidaFinish = new Map<string, Date>(); // clave → fecha fin global de esa partida
+      const nuevas: Omit<Actividad, "id">[] = [];
+      let orden = 0;
+
+      function earliestStartFor(clave: string): Date {
+        const deps = PARTIDA_DEPS[clave] ?? [];
+        let max = new Date(projectStart);
+        for (const d of deps) {
+          const fin = partidaFinish.get(d);
+          if (fin && fin > max) max = new Date(fin);
+        }
+        return nextBusinessDay(max);
+      }
+
+      function scheduleSequential(items: Row[], start: Date, clave: string, partidaNombre: string) {
+        let cursor = new Date(start);
+        let maxFin = new Date(start);
         for (const it of items) {
-          const base = it.rendimiento > 0 ? it.cantidad / it.rendimiento : it.cantidad;
-          const dias = Math.max(1, Math.round(base * HOLGURA));
-          const fi = nextBusinessDay(new Date(cursor));
+          const dias = duracionConcepto(it);
+          const fi = nextBusinessDay(cursor);
           const ff = addBusinessDays(fi, dias);
           nuevas.push({
             proyecto_id: it.proyecto_id,
             cotizacion_id: it.proyecto_id,
             concepto_id: it.concepto_id,
             nombre_actividad: it.descripcion,
-            partida: it.partidaNombre,
+            partida: partidaNombre,
+            partida_clave: clave,
+            fecha_inicio: toISO(fi),
+            fecha_fin: toISO(ff),
+            duracion_dias: dias,
+            factor_holgura: HOLGURA,
+            orden: orden++,
+          });
+          cursor = nextBusinessDay(ff);
+          if (ff > maxFin) maxFin = ff;
+        }
+        return maxFin;
+      }
+
+      for (const clave of orderedClaves) {
+        const items = grupos.get(clave)!;
+        const partidaNombre = items[0]?.partidaNombre ?? clave;
+        const es = earliestStartFor(clave);
+
+        // Separar conceptos "mes" (paralelos al proyecto desde inicio) y "%" (se difieren)
+        const mesItems = items.filter((it) => {
+          const u = (it.unidad || "").trim().toLowerCase();
+          return u === "mes" || u === "meses";
+        });
+        const pctItems = items.filter((it) => (it.unidad || "").trim() === "%");
+        const normales = items.filter((it) => !mesItems.includes(it) && !pctItems.includes(it));
+
+        let maxFin = new Date(es);
+
+        if (clave === "ALB") {
+          // Dentro de ALB: firmes/losas antes de muros
+          const isFirme = (s: string) => /firme|losa/i.test(s);
+          const isMuro = (s: string) => /muro/i.test(s);
+          const firmes = normales.filter((it) => isFirme(it.descripcion));
+          const muros = normales.filter((it) => isMuro(it.descripcion) && !isFirme(it.descripcion));
+          const otros = normales.filter((it) => !isFirme(it.descripcion) && !isMuro(it.descripcion));
+          let f = es;
+          if (firmes.length) f = scheduleSequential(firmes, f, clave, partidaNombre);
+          if (otros.length) {
+            const fo = scheduleSequential(otros, f, clave, partidaNombre);
+            if (fo > f) f = fo;
+          }
+          if (muros.length) {
+            const fm = scheduleSequential(muros, nextBusinessDay(f), clave, partidaNombre);
+            if (fm > f) f = fm;
+          }
+          maxFin = f;
+        } else if (normales.length) {
+          maxFin = scheduleSequential(normales, es, clave, partidaNombre);
+        }
+
+        // Conceptos "mes": en paralelo desde el inicio del proyecto
+        for (const it of mesItems) {
+          const dias = duracionConcepto(it);
+          const fi = nextBusinessDay(projectStart);
+          const ff = addBusinessDays(fi, dias);
+          nuevas.push({
+            proyecto_id: it.proyecto_id,
+            cotizacion_id: it.proyecto_id,
+            concepto_id: it.concepto_id,
+            nombre_actividad: it.descripcion,
+            partida: partidaNombre,
             partida_clave: clave,
             fecha_inicio: toISO(fi),
             fecha_fin: toISO(ff),
@@ -340,7 +426,78 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
           });
           if (ff > maxFin) maxFin = ff;
         }
-        cursor = nextBusinessDay(maxFin);
+
+        // Conceptos "%" se aplazan: los registramos como pendientes con marker
+        // Para no perder referencia los guardamos provisionalmente con span del proyecto al final.
+        (pctItems as Row[]).forEach((it) => {
+          nuevas.push({
+            proyecto_id: it.proyecto_id,
+            cotizacion_id: it.proyecto_id,
+            concepto_id: it.concepto_id,
+            nombre_actividad: it.descripcion,
+            partida: partidaNombre,
+            partida_clave: clave,
+            fecha_inicio: toISO(projectStart),
+            fecha_fin: toISO(projectStart), // placeholder, se ajusta al final
+            duracion_dias: 0,
+            factor_holgura: HOLGURA,
+            orden: orden++,
+          });
+        });
+
+        partidaFinish.set(clave, maxFin);
+      }
+
+      // Calcular fin "antes de LIM" (excluyendo SUP/GER y %)
+      let projectEndPreLim = new Date(projectStart);
+      for (const f of partidaFinish.values()) {
+        if (f > projectEndPreLim) projectEndPreLim = f;
+      }
+
+      // LIM al final
+      if (grupos.has(ALWAYS_LAST)) {
+        const items = grupos.get(ALWAYS_LAST)!;
+        const partidaNombre = items[0]?.partidaNombre ?? ALWAYS_LAST;
+        const limStart = nextBusinessDay(projectEndPreLim);
+        const finLim = scheduleSequential(items, limStart, ALWAYS_LAST, partidaNombre);
+        partidaFinish.set(ALWAYS_LAST, finLim);
+        if (finLim > projectEndPreLim) projectEndPreLim = finLim;
+      }
+
+      const projectEnd = projectEndPreLim;
+
+      // SUP / GER: span completo del proyecto
+      for (const clave of Array.from(SPAN_ALL)) {
+        if (!grupos.has(clave)) continue;
+        const items = grupos.get(clave)!;
+        const partidaNombre = items[0]?.partidaNombre ?? clave;
+        for (const it of items) {
+          const dias = businessDaysBetween(projectStart, projectEnd);
+          nuevas.push({
+            proyecto_id: it.proyecto_id,
+            cotizacion_id: it.proyecto_id,
+            concepto_id: it.concepto_id,
+            nombre_actividad: it.descripcion,
+            partida: partidaNombre,
+            partida_clave: clave,
+            fecha_inicio: toISO(projectStart),
+            fecha_fin: toISO(projectEnd),
+            duracion_dias: dias,
+            factor_holgura: HOLGURA,
+            orden: orden++,
+          });
+        }
+      }
+
+      // Ajustar conceptos "%" a span total
+      const totalDias = businessDaysBetween(projectStart, projectEnd);
+      for (const a of nuevas) {
+        const it = filas.find((f) => f.concepto_id === a.concepto_id && f.descripcion === a.nombre_actividad);
+        if (it && (it.unidad || "").trim() === "%") {
+          a.fecha_inicio = toISO(projectStart);
+          a.fecha_fin = toISO(projectEnd);
+          a.duracion_dias = totalDias;
+        }
       }
 
       await supabase.from("cronograma_actividades").delete().eq("cotizacion_id", selectedCotId);
