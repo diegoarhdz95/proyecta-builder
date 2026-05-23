@@ -11,6 +11,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 type GView = "day" | "week" | "month";
 const BASE_CELL: Record<GView, number> = { day: 36, week: 16, month: 6 };
