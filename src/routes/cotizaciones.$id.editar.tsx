@@ -4,8 +4,9 @@ import { useState } from "react";
 import { supabase, DESPACHO_ID, IVA_RATE, type Partida, type Concepto, type Proyecto, type ProyectoConcepto } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { ArrowLeft, Download, FileText, PieChart, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Clock, Download, FileText, PieChart, Plus, Trash2 } from "lucide-react";
 import { generateCotizacionPDF } from "@/lib/generate-pdf";
 
 export const Route = createFileRoute("/cotizaciones/$id/editar")({
@@ -21,6 +22,9 @@ function Editor() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const [selectedPartida, setSelectedPartida] = useState<string | null>(null);
+  const [tiempoTexto, setTiempoTexto] = useState("");
+  const [tiempoIncluir, setTiempoIncluir] = useState(false);
+  const [tiempoHydrated, setTiempoHydrated] = useState(false);
 
   const { data: proyecto } = useQuery({
     queryKey: ["proyecto", id],
@@ -30,6 +34,54 @@ function Editor() {
       return data as Proyecto;
     },
   });
+
+  if (proyecto && !tiempoHydrated) {
+    setTiempoTexto(proyecto.tiempo_ejecucion_texto ?? "");
+    setTiempoIncluir(!!proyecto.tiempo_ejecucion_incluir);
+    setTiempoHydrated(true);
+  }
+
+  async function saveTiempo(next: { texto?: string; incluir?: boolean }) {
+    const texto = next.texto ?? tiempoTexto;
+    const incluir = next.incluir ?? tiempoIncluir;
+    await supabase
+      .from("proyectos")
+      .update({ tiempo_ejecucion_texto: texto || null, tiempo_ejecucion_incluir: incluir })
+      .eq("id", id);
+    qc.invalidateQueries({ queryKey: ["proyecto", id] });
+  }
+
+  async function tomarDelCronograma() {
+    const { data, error } = await supabase
+      .from("cronograma_actividades")
+      .select("fecha_inicio, fecha_fin")
+      .eq("cotizacion_id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      toast.error("No hay cronograma generado para esta cotización");
+      return;
+    }
+    const starts = data.map((a) => new Date(a.fecha_inicio + "T00:00:00").getTime());
+    const ends = data.map((a) => new Date(a.fecha_fin + "T00:00:00").getTime());
+    const minStart = new Date(Math.min(...starts));
+    const maxEnd = new Date(Math.max(...ends));
+    let dias = 0;
+    const cur = new Date(minStart);
+    while (cur.getTime() <= maxEnd.getTime()) {
+      const d = cur.getDay();
+      if (d >= 1 && d <= 5) dias += 1;
+      else if (d === 6) dias += 0.5;
+      cur.setDate(cur.getDate() + 1);
+    }
+    const semanas = Math.ceil(dias / 5);
+    const texto = `${semanas} semana${semanas === 1 ? "" : "s"}`;
+    setTiempoTexto(texto);
+    await saveTiempo({ texto });
+    toast.success(`Tiempo estimado: ${texto} (${dias} días hábiles)`);
+  }
 
   const { data: obra } = useQuery({
     queryKey: ["proyecto_obra", proyecto?.obra_id],
