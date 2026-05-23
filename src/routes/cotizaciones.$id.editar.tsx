@@ -248,6 +248,12 @@ function Editor() {
   async function handleGeneratePDF() {
     if (!proyecto) return;
     try {
+      const { data: proyectoFresh, error: e0 } = await supabase
+        .from("proyectos")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (e0) throw e0;
       const { data: itemsFull, error: e1 } = await supabase
         .from("proyecto_conceptos")
         .select("*, proyecto_partida:proyecto_partida_id(partida_id), concepto:concepto_id(especificaciones)")
@@ -259,7 +265,7 @@ function Editor() {
         .order("orden");
       if (e2) throw e2;
       generateCotizacionPDF({
-        proyecto,
+        proyecto: proyectoFresh as Proyecto,
         items: (itemsFull ?? []) as never,
         partidas: (allPartidas ?? []) as Partida[],
       });
