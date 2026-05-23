@@ -274,14 +274,18 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
       });
 
-      const startRaw = addDays(new Date(), 7);
-      startRaw.setHours(0, 0, 0, 0);
+      const startRaw = new Date(`${genStartDate}T00:00:00`);
+      if (isNaN(startRaw.getTime())) {
+        toast.error("Fecha de inicio inválida");
+        setGenerating(false);
+        return;
+      }
       const start = nextBusinessDay(startRaw);
 
       let cursor = new Date(start);
       let orden = 0;
       const nuevas: Omit<Actividad, "id">[] = [];
-      const HOLGURA = 1.20;
+      const HOLGURA = clamp(1.0, Number(genHolgura) || 1.2, 2.0);
 
       for (const clave of orderedClaves) {
         const items = grupos.get(clave)!;
