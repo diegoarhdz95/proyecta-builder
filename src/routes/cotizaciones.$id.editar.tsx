@@ -425,6 +425,40 @@ function Editor() {
               <dd className="tabular-nums">{currency(total)}</dd>
             </div>
           </dl>
+
+          <div className="mt-6 border-t pt-4">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Tiempo de ejecución
+            </h3>
+            <Input
+              value={tiempoTexto}
+              onChange={(e) => setTiempoTexto(e.target.value)}
+              onBlur={() => saveTiempo({ texto: tiempoTexto })}
+              placeholder="ej. 8 semanas"
+              className="h-8 text-sm"
+            />
+            <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                checked={tiempoIncluir}
+                onCheckedChange={(v) => {
+                  const incluir = !!v;
+                  setTiempoIncluir(incluir);
+                  saveTiempo({ incluir });
+                }}
+              />
+              Incluir en cotización PDF
+            </label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={tomarDelCronograma}
+              className="mt-3 w-full"
+            >
+              <Clock className="mr-2 h-3.5 w-3.5" />
+              Tomar del cronograma
+            </Button>
+          </div>
         </aside>
       </div>
     </div>
