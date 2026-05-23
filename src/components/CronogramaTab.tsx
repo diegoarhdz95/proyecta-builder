@@ -507,12 +507,12 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
             ))}
           </select>
           {hasCronograma ? (
-            <Button size="sm" variant="outline" className="h-8 px-2 text-xs gap-1" onClick={generar} disabled={generating || !selectedCotId}>
+            <Button size="sm" variant="outline" className="h-8 px-2 text-xs gap-1" onClick={() => setGenModalOpen(true)} disabled={generating || !selectedCotId}>
               <RefreshCw className={`h-3.5 w-3.5 ${generating ? "animate-spin" : ""}`} />
               {generating ? "…" : "Regenerar"}
             </Button>
           ) : (
-            <Button size="sm" className="h-8 px-2 text-xs gap-1" onClick={generar} disabled={generating || !selectedCotId}>
+            <Button size="sm" className="h-8 px-2 text-xs gap-1" onClick={() => setGenModalOpen(true)} disabled={generating || !selectedCotId}>
               <BarChart2 className="h-3.5 w-3.5" />
               Gantt IA
             </Button>
