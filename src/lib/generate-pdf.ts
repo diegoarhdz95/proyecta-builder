@@ -181,7 +181,12 @@ export function generateCotizacionPDF(opts: {
     ["Vigencia", "30 días naturales a partir de la fecha de emisión."],
     ["Anticipo", "30% del total para arranque del proyecto."],
     ["Forma de pago", "Pagos parciales según estimaciones de avance de obra."],
-    ["Tiempo de ejecución", "Por definir conforme al programa de obra acordado con el cliente."],
+    [
+      "Tiempo de ejecución",
+      proyecto.tiempo_ejecucion_incluir && proyecto.tiempo_ejecucion_texto
+        ? `Tiempo estimado de ejecución: ${proyecto.tiempo_ejecucion_texto}`
+        : "Por definir conforme al programa de obra acordado con el cliente.",
+    ],
     ["Moneda", "Todos los precios están expresados en pesos mexicanos (MXN)."],
     ["Impuestos", "IVA del 16% incluido en el total final de la cotización."],
   ];
