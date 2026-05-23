@@ -165,6 +165,14 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
   const [editing, setEditing] = useState<Actividad | null>(null);
   const [generating, setGenerating] = useState(false);
   const [selectedCotId, setSelectedCotId] = useState<string>("");
+  const [genModalOpen, setGenModalOpen] = useState(false);
+  const defaultStart = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  })();
+  const [genStartDate, setGenStartDate] = useState<string>(defaultStart);
+  const [genHolgura, setGenHolgura] = useState<number>(1.2);
   const [zoom, setZoom] = useState(1);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const wrapRef = useRef<HTMLDivElement>(null);
