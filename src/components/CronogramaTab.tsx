@@ -472,11 +472,13 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div className="flex-1">
-          <label className="text-xs uppercase tracking-wide text-muted-foreground">Cotización</label>
+      {/* Barra de controles compacta en una sola línea */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Izquierda: Cotización + Gantt IA */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <label className="text-[10px] uppercase tracking-wide text-muted-foreground shrink-0">Cotización</label>
           <select
-            className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:max-w-md"
+            className="h-8 rounded-md border border-input bg-transparent px-2 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:max-w-xs"
             value={selectedCotId}
             onChange={(e) => setSelectedCotId(e.target.value)}
           >
@@ -485,9 +487,21 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
               <option key={c.id} value={c.id}>{c.folio} · {c.nombre_proyecto}</option>
             ))}
           </select>
+          {hasCronograma ? (
+            <Button size="sm" variant="outline" className="h-8 px-2 text-xs gap-1" onClick={generar} disabled={generating || !selectedCotId}>
+              <RefreshCw className={`h-3.5 w-3.5 ${generating ? "animate-spin" : ""}`} />
+              {generating ? "…" : "Regenerar"}
+            </Button>
+          ) : (
+            <Button size="sm" className="h-8 px-2 text-xs gap-1" onClick={generar} disabled={generating || !selectedCotId}>
+              <BarChart2 className="h-3.5 w-3.5" />
+              Gantt IA
+            </Button>
+          )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Vista:</span>
+
+        {/* Derecha: Vista + Zoom */}
+        <div className="flex items-center gap-1">
           {([
             { v: "day" as const, l: "Día" },
             { v: "week" as const, l: "Semana" },
@@ -496,34 +510,24 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
             <Button
               key={o.l}
               size="sm"
+              className="h-8 px-2 text-xs"
               variant={view === o.v ? "default" : "outline"}
               onClick={() => { setView(o.v); setZoom(1); }}
             >
               {o.l}
             </Button>
           ))}
-          <Button size="sm" variant="outline" onClick={verTodo} title="Ajusta el zoom para ver todo el proyecto">
-            <Maximize2 className="mr-1.5 h-3.5 w-3.5" /> Ver todo
+          <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={verTodo} title="Ver todo">
+            <Maximize2 className="h-3.5 w-3.5" />
           </Button>
-          <div className="mx-1 h-5 w-px bg-border" />
-          <Button size="sm" variant="outline" onClick={() => setZoom((z) => clamp(0.1, +(z / 1.2).toFixed(3), 6))} title="Alejar (Ctrl+Scroll)">
+          <div className="mx-0.5 h-4 w-px bg-border" />
+          <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={() => setZoom((z) => clamp(0.1, +(z / 1.2).toFixed(3), 6))} title="Alejar (Ctrl+Scroll)">
             <ZoomOut className="h-3.5 w-3.5" />
           </Button>
-          <span className="text-xs tabular-nums text-muted-foreground w-12 text-center">{Math.round(zoom * 100)}%</span>
-          <Button size="sm" variant="outline" onClick={() => setZoom((z) => clamp(0.1, +(z * 1.2).toFixed(3), 6))} title="Acercar (Ctrl+Scroll)">
+          <span className="text-[10px] tabular-nums text-muted-foreground w-10 text-center">{Math.round(zoom * 100)}%</span>
+          <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={() => setZoom((z) => clamp(0.1, +(z * 1.2).toFixed(3), 6))} title="Acercar (Ctrl+Scroll)">
             <ZoomIn className="h-3.5 w-3.5" />
           </Button>
-          {hasCronograma ? (
-            <Button size="sm" variant="outline" onClick={generar} disabled={generating || !selectedCotId}>
-              <RefreshCw className={`mr-2 h-3.5 w-3.5 ${generating ? "animate-spin" : ""}`} />
-              {generating ? "Regenerando…" : "Regenerar"}
-            </Button>
-          ) : (
-            <Button onClick={generar} disabled={generating || !selectedCotId}>
-              <Sparkles className="mr-2 h-4 w-4" />
-              {generating ? "Generando…" : "Generar cronograma con IA"}
-            </Button>
-          )}
         </div>
       </div>
 
