@@ -32,6 +32,36 @@ const PARTIDA_ORDER = [
   "CAR","HER","CAN","MOB","SUP","LIM",
 ];
 
+/**
+ * Dependencias entre partidas: cada clave debe TERMINAR antes de que la
+ * partida actual pueda iniciar. Si una partida no aparece o tiene [] no
+ * tiene predecesores duros y arranca al inicio del proyecto.
+ * SUP / GER y partidas con unidad "%" siempre abarcan todo el proyecto.
+ * LIM se programa después de TODO.
+ */
+const PARTIDA_DEPS: Record<string, string[]> = {
+  PRE: [],
+  DEM: ["PRE"],
+  EST: ["DEM"],
+  ALB: ["DEM", "EST"],
+  HID: ["DEM"],
+  SAN: ["DEM"],
+  ELE: ["DEM"],
+  ACO: ["DEM"],
+  VOZ: ["DEM"],
+  ACB: ["HID", "SAN", "ELE", "ALB"],
+  PIS: ["ALB"],
+  REC: ["ALB"],
+  PIN: ["ACB"],
+  ILU: ["PIN"],
+  CAR: ["PIN"],
+  HER: ["PIN"],
+  CAN: ["PIN"],
+  MOB: ["CAR"],
+};
+const SPAN_ALL = new Set(["SUP", "GER"]);
+const ALWAYS_LAST = "LIM";
+
 const PARTIDA_COLORS: Record<string, string> = {
   PRE: "#9ca3af", // gris
   DEM: "#dc2626", // rojo
