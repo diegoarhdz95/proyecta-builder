@@ -110,25 +110,18 @@ export function generateCotizacionPDF(opts: {
     const body: RowInput[] = [];
     group.forEach((it) => {
       counter += 1;
+      const spec = it.concepto?.especificaciones?.trim();
       body.push([
         { content: String(counter) },
-        { content: it.descripcion, styles: { fontStyle: "bold" } },
+        {
+          content: spec ? `${it.descripcion}\n${spec}` : it.descripcion,
+          styles: { fontStyle: "bold" },
+        },
         { content: it.unidad },
         { content: String(Number(it.cantidad)) },
         { content: currency(Number(it.precio_unitario_final)) },
         { content: currency(Number(it.subtotal)) },
       ]);
-      const spec = it.concepto?.especificaciones?.trim();
-      if (spec) {
-        body.push([
-          { content: "" },
-          {
-            content: spec,
-            styles: { textColor: [140, 140, 140], fontSize: 7, fontStyle: "italic", cellPadding: { top: 0, right: 4, bottom: 4, left: 4 } },
-          },
-          { content: "", colSpan: 4, styles: { cellPadding: { top: 0, right: 4, bottom: 4, left: 4 } } },
-        ]);
-      }
     });
     const subPartida = group.reduce((s, i) => s + Number(i.subtotal || 0), 0);
 
@@ -138,6 +131,9 @@ export function generateCotizacionPDF(opts: {
         ["No.", "Descripción", "Unidad", "Cant.", "P.U.", "Importe"]],
       body,
       foot: [[{ content: "Subtotal partida", colSpan: 5, styles: { halign: "right", fontStyle: "bold" } }, { content: currency(subPartida), styles: { halign: "right", fontStyle: "bold" } }]],
+      showHead: "firstPage",
+      showFoot: "lastPage",
+      rowPageBreak: "avoid",
       styles: { font: "helvetica", fontSize: 8, cellPadding: 4, textColor: [40, 40, 40] },
       headStyles: { fillColor: [240, 242, 247], textColor: NAVY, fontStyle: "bold" },
       footStyles: { fillColor: [248, 249, 252], textColor: NAVY },
