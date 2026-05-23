@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Gantt, Task, ViewMode } from "gantt-task-react";
-import "gantt-task-react/dist/index.css";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Save, AlertTriangle, RefreshCw, ZoomIn, ZoomOut, ChevronDown, ChevronRight } from "lucide-react";
+import { Sparkles, Save, AlertTriangle, RefreshCw, ZoomIn, ZoomOut, ChevronDown, ChevronRight, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -13,6 +11,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+
+type GView = "day" | "week" | "month";
+const BASE_CELL: Record<GView, number> = { day: 36, week: 16, month: 6 };
+const ROW_H = 30;
+const HEADER_H = 46;
+const LEFT_W = 380;
+const clamp = (a: number, v: number, b: number) => Math.max(a, Math.min(b, v));
 
 const PARTIDA_ORDER = [
   "PRE","DEM","EST","ALB","HID","SAN","ELE",
@@ -149,12 +154,11 @@ function fmtFecha(iso: string) {
 
 export function CronogramaTab({ obraId }: { obraId: string }) {
   const qc = useQueryClient();
-  const [view, setView] = useState<ViewMode>(ViewMode.Week);
+  const [view, setView] = useState<GView>("week");
   const [editing, setEditing] = useState<Actividad | null>(null);
   const [generating, setGenerating] = useState(false);
   const [selectedCotId, setSelectedCotId] = useState<string>("");
   const [zoom, setZoom] = useState(1);
-  const [fitMode, setFitMode] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const wrapRef = useRef<HTMLDivElement>(null);
   const [wrapWidth, setWrapWidth] = useState(1200);
@@ -243,7 +247,6 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         return;
       }
 
-      // group by partida clave
       const grupos = new Map<string, Row[]>();
       for (const f of filas) {
         if (!grupos.has(f.partidaClave)) grupos.set(f.partidaClave, []);
@@ -291,7 +294,6 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         cursor = nextBusinessDay(maxFin);
       }
 
-      // borrar previas de ESTA cotización y guardar
       await supabase.from("cronograma_actividades").delete().eq("cotizacion_id", selectedCotId);
       const { error: insErr } = await supabase.from("cronograma_actividades").insert(nuevas);
       if (insErr) throw insErr;
@@ -305,80 +307,144 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
     }
   }
 
-  // Build tasks with collapsible partida headers (project rows)
-  const tasks: Task[] = useMemo(() => {
+  // ============= GANTT MODEL =============
+  type Grupo = { clave: string; nombre: string; items: Actividad[]; color: string };
+  const grupos: Grupo[] = useMemo(() => {
     const acts = actividades ?? [];
-    if (acts.length === 0) return [];
-    const groups = new Map<string, { clave: string; nombre: string; items: Actividad[] }>();
+    const map = new Map<string, Grupo>();
     for (const a of acts) {
       const clave = (a.partida_clave ?? "ZZZ").toUpperCase();
-      if (!groups.has(clave)) groups.set(clave, { clave, nombre: a.partida ?? clave, items: [] });
-      groups.get(clave)!.items.push(a);
+      if (!map.has(clave)) map.set(clave, { clave, nombre: a.partida ?? clave, items: [], color: colorFor(clave) });
+      map.get(clave)!.items.push(a);
     }
-    const orderedClaves = Array.from(groups.keys()).sort((a, b) => {
-      const ia = PARTIDA_ORDER.indexOf(a);
-      const ib = PARTIDA_ORDER.indexOf(b);
+    return Array.from(map.values()).sort((a, b) => {
+      const ia = PARTIDA_ORDER.indexOf(a.clave);
+      const ib = PARTIDA_ORDER.indexOf(b.clave);
       return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
     });
-    const out: Task[] = [];
-    for (const clave of orderedClaves) {
-      const g = groups.get(clave)!;
-      const color = colorFor(clave);
-      const projectId = `grp-${clave}`;
+  }, [actividades]);
+
+  type Row =
+    | { kind: "group"; clave: string; nombre: string; color: string; start: Date; end: Date; childCount: number }
+    | { kind: "task"; act: Actividad; color: string };
+  const rows: Row[] = useMemo(() => {
+    const out: Row[] = [];
+    for (const g of grupos) {
       const starts = g.items.map((a) => new Date(a.fecha_inicio).getTime());
       const ends = g.items.map((a) => new Date(a.fecha_fin).getTime());
-      const isCollapsed = !!collapsed[projectId];
       out.push({
-        id: projectId,
-        name: `${clave} · ${g.nombre}`,
+        kind: "group",
+        clave: g.clave,
+        nombre: g.nombre,
+        color: g.color,
         start: new Date(Math.min(...starts)),
         end: new Date(Math.max(...ends)),
-        type: "project",
-        progress: 0,
-        hideChildren: isCollapsed,
-        isDisabled: true,
-        styles: {
-          backgroundColor: color,
-          backgroundSelectedColor: color,
-          progressColor: color,
-          progressSelectedColor: color,
-        },
+        childCount: g.items.length,
       });
-      for (const a of g.items) {
-        out.push({
-          id: a.id,
-          name: a.nombre_actividad,
-          start: new Date(a.fecha_inicio),
-          end: new Date(a.fecha_fin),
-          type: "task",
-          progress: 0,
-          project: projectId,
-          isDisabled: false,
-          styles: {
-            backgroundColor: color,
-            backgroundSelectedColor: color,
-            progressColor: color,
-            progressSelectedColor: color,
-          },
-        });
+      if (!collapsed[g.clave]) {
+        for (const a of g.items) out.push({ kind: "task", act: a, color: g.color });
       }
     }
     return out;
-  }, [actividades, collapsed]);
+  }, [grupos, collapsed]);
 
-  async function persistTask(id: string, start: Date, end: Date) {
-    const dur = businessDaysBetween(start, end);
-    const { error } = await supabase
-      .from("cronograma_actividades")
-      .update({
-        fecha_inicio: toISO(start),
-        fecha_fin: toISO(end),
-        duracion_dias: dur,
-      })
-      .eq("id", id);
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["cronograma", obraId] });
+  // Day list, Sundays skipped
+  const days = useMemo(() => {
+    const acts = actividades ?? [];
+    if (acts.length === 0) return [] as Date[];
+    const starts = acts.map((a) => new Date(a.fecha_inicio).getTime());
+    const ends = acts.map((a) => new Date(a.fecha_fin).getTime());
+    const min = new Date(Math.min(...starts));
+    const max = new Date(Math.max(...ends));
+    min.setHours(0, 0, 0, 0); max.setHours(0, 0, 0, 0);
+    const cur = new Date(min); cur.setDate(cur.getDate() - 2);
+    const stop = new Date(max); stop.setDate(stop.getDate() + 3);
+    const arr: Date[] = [];
+    while (cur <= stop) {
+      if (cur.getDay() !== 0) arr.push(new Date(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return arr;
+  }, [actividades]);
+
+  const dayIdx = useMemo(() => {
+    const m = new Map<string, number>();
+    days.forEach((d, i) => m.set(toISO(d), i));
+    return m;
+  }, [days]);
+
+  function findIdx(d: Date, direction: 1 | -1 = 1): number {
+    const probe = new Date(d); probe.setHours(0, 0, 0, 0);
+    for (let i = 0; i < 8; i++) {
+      const key = toISO(probe);
+      if (dayIdx.has(key)) return dayIdx.get(key)!;
+      probe.setDate(probe.getDate() + direction);
+    }
+    return 0;
   }
+
+  // Cell width
+  const cellW = useMemo(() => {
+    const base = BASE_CELL[view];
+    return Math.max(2, Math.round(base * zoom));
+  }, [view, zoom]);
+
+  const totalW = days.length * cellW;
+  const fontBody = clamp(8, Math.round(11 * Math.sqrt(zoom)), 22);
+  const fontHeader = clamp(7, Math.round(10 * Math.sqrt(zoom)), 20);
+  const rowH = clamp(22, Math.round(ROW_H * Math.sqrt(zoom)), 56);
+
+  // Fit-to-screen: compute zoom so the whole project fits in available width
+  function verTodo() {
+    if (days.length === 0) return;
+    const avail = Math.max(300, wrapWidth - LEFT_W - 8);
+    const z = avail / (days.length * BASE_CELL[view]);
+    setZoom(clamp(0.1, +z.toFixed(3), 6));
+    if (wrapRef.current) wrapRef.current.scrollLeft = 0;
+  }
+
+  // Ctrl+wheel zoom
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      setZoom((z) => clamp(0.1, +(z * (e.deltaY < 0 ? 1.15 : 1 / 1.15)).toFixed(3), 6));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // Month groups for header
+  const monthSpans = useMemo(() => {
+    const out: { label: string; left: number; width: number }[] = [];
+    if (days.length === 0) return out;
+    let startI = 0;
+    for (let i = 1; i <= days.length; i++) {
+      const end = i === days.length;
+      const sameMonth = !end && days[i].getMonth() === days[startI].getMonth() && days[i].getFullYear() === days[startI].getFullYear();
+      if (!sameMonth) {
+        const d = days[startI];
+        const label = d.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+        out.push({ label, left: startI * cellW, width: (i - startI) * cellW });
+        startI = i;
+      }
+    }
+    return out;
+  }, [days, cellW]);
+
+  // Project totals
+  const totals = useMemo(() => {
+    const acts = actividades ?? [];
+    if (acts.length === 0) return null;
+    const starts = acts.map((a) => new Date(a.fecha_inicio).getTime());
+    const ends = acts.map((a) => new Date(a.fecha_fin).getTime());
+    const s = new Date(Math.min(...starts));
+    const e = new Date(Math.max(...ends));
+    const bd = businessDaysBetween(s, e);
+    return { start: s, end: e, businessDays: bd, weeks: Math.max(1, Math.ceil(bd / 5)) };
+  }, [actividades]);
 
   async function guardarEdicion() {
     if (!editing) return;
@@ -402,30 +468,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
   }
 
   const hasCronograma = (actividades ?? []).length > 0;
-  const rowHeight = 44;
-  const visibleRows = tasks.length;
-  const ganttHeight = Math.min(640, Math.max(500, visibleRows * rowHeight + 60));
-
-  // Column width: zoom or fit-to-container
-  const baseCol = view === ViewMode.Month ? 200 : view === ViewMode.Week ? 100 : 50;
-  const listW = 380;
-  let columnWidth = Math.max(20, Math.round(baseCol * zoom));
-  if (fitMode && tasks.length > 0) {
-    const mins = tasks.map((t) => t.start.getTime());
-    const maxs = tasks.map((t) => t.end.getTime());
-    const start = new Date(Math.min(...mins));
-    const end = new Date(Math.max(...maxs));
-    let cols = 1;
-    if (view === ViewMode.Day) {
-      cols = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000) + 2);
-    } else if (view === ViewMode.Week) {
-      cols = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (86400000 * 7)) + 2);
-    } else {
-      cols = Math.max(1, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 2);
-    }
-    const avail = Math.max(400, wrapWidth - listW - 4);
-    columnWidth = Math.max(12, Math.floor(avail / cols));
-  }
+  const bodyH = rows.length * rowH;
 
   return (
     <div className="space-y-4">
@@ -443,39 +486,35 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
             ))}
           </select>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground">Vista:</span>
-          {[
-            { v: ViewMode.Day, l: "Día" },
-            { v: ViewMode.Week, l: "Semana" },
-            { v: ViewMode.Month, l: "Mes" },
-          ].map((o) => (
+          {([
+            { v: "day" as const, l: "Día" },
+            { v: "week" as const, l: "Semana" },
+            { v: "month" as const, l: "Mes" },
+          ]).map((o) => (
             <Button
               key={o.l}
               size="sm"
-              variant={!fitMode && view === o.v ? "default" : "outline"}
-              onClick={() => { setFitMode(false); setView(o.v); }}
+              variant={view === o.v ? "default" : "outline"}
+              onClick={() => { setView(o.v); setZoom(1); }}
             >
               {o.l}
             </Button>
           ))}
-          <Button
-            size="sm"
-            variant={fitMode ? "default" : "outline"}
-            onClick={() => { setFitMode(true); }}
-            title="Ajustar todo el cronograma al ancho disponible"
-          >
-            Proyecto completo
+          <Button size="sm" variant="outline" onClick={verTodo} title="Ajusta el zoom para ver todo el proyecto">
+            <Maximize2 className="mr-1.5 h-3.5 w-3.5" /> Ver todo
           </Button>
           <div className="mx-1 h-5 w-px bg-border" />
-          <Button size="sm" variant="outline" onClick={() => { setFitMode(false); setZoom((z) => Math.max(0.25, +(z / 1.25).toFixed(2))); }} title="Alejar">
+          <Button size="sm" variant="outline" onClick={() => setZoom((z) => clamp(0.1, +(z / 1.2).toFixed(3), 6))} title="Alejar (Ctrl+Scroll)">
             <ZoomOut className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="outline" onClick={() => { setFitMode(false); setZoom((z) => Math.min(4, +(z * 1.25).toFixed(2))); }} title="Acercar">
+          <span className="text-xs tabular-nums text-muted-foreground w-12 text-center">{Math.round(zoom * 100)}%</span>
+          <Button size="sm" variant="outline" onClick={() => setZoom((z) => clamp(0.1, +(z * 1.2).toFixed(3), 6))} title="Acercar (Ctrl+Scroll)">
             <ZoomIn className="h-3.5 w-3.5" />
           </Button>
           {hasCronograma ? (
-            <Button size="sm" variant="outline" onClick={generar} disabled={generating || !selectedCotId} title="Regenerar reemplaza el cronograma actual">
+            <Button size="sm" variant="outline" onClick={generar} disabled={generating || !selectedCotId}>
               <RefreshCw className={`mr-2 h-3.5 w-3.5 ${generating ? "animate-spin" : ""}`} />
               {generating ? "Regenerando…" : "Regenerar"}
             </Button>
@@ -488,11 +527,18 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         </div>
       </div>
 
-      <style>{`
-        .gantt-wrap { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
-        .gantt-wrap *::-webkit-scrollbar { height: 10px; width: 10px; }
-        .gantt-wrap *::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 8px; }
-      `}</style>
+      {totals && (
+        <div className="flex items-center justify-between rounded-md border bg-muted/30 px-4 py-2.5 text-sm">
+          <div>
+            <span className="font-semibold">Duración total:</span>{" "}
+            <span className="tabular-nums">{totals.businessDays} días hábiles</span>{" "}
+            <span className="text-muted-foreground">({totals.weeks} semanas aproximadamente)</span>
+          </div>
+          <div className="text-xs text-muted-foreground tabular-nums">
+            {fmtFecha(toISO(totals.start))} → {fmtFecha(toISO(totals.end))}
+          </div>
+        </div>
+      )}
 
       {!hasCronograma ? (
         <div className="rounded-lg border bg-card p-10 text-center text-sm text-muted-foreground">
@@ -501,94 +547,159 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
       ) : (
         <div
           ref={wrapRef}
-          className="gantt-wrap w-full overflow-auto rounded-lg border bg-card"
-          style={{ maxHeight: 640, scrollBehavior: "smooth", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}
+          className="gantt-msp relative w-full overflow-auto rounded-lg border bg-card"
+          style={{ maxHeight: 680 }}
         >
-          <Gantt
-            tasks={tasks}
-            viewMode={view}
-            locale="es-MX"
-            listCellWidth={`${listW}px`}
-            rowHeight={rowHeight}
-            ganttHeight={ganttHeight}
-            columnWidth={columnWidth}
-            onDateChange={async (t) => { await persistTask(t.id, t.start, t.end); }}
-            onExpanderClick={(t) => {
-              setCollapsed((s) => ({ ...s, [t.id]: !s[t.id] }));
-            }}
-            onClick={(t: Task) => {
-              if (t.type === "project") return;
-              const a = (actividades ?? []).find((x) => x.id === t.id);
-              if (a) setEditing({ ...a });
-            }}
-            TaskListHeader={({ headerHeight, rowWidth, fontFamily, fontSize }) => (
+          <div style={{ width: LEFT_W + totalW, position: "relative" }}>
+            {/* Header */}
+            <div
+              className="flex bg-muted/60 backdrop-blur"
+              style={{ position: "sticky", top: 0, zIndex: 30, height: HEADER_H }}
+            >
               <div
-                className="flex items-center border-b bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                style={{ height: headerHeight, width: rowWidth, fontFamily, fontSize }}
+                className="flex items-center border-b border-r bg-muted/80"
+                style={{ position: "sticky", left: 0, zIndex: 40, width: LEFT_W, fontSize: fontHeader }}
               >
-                <div className="px-3" style={{ width: "55%" }}>Actividad</div>
-                <div className="px-2" style={{ width: "15%" }}>Inicio</div>
-                <div className="px-2" style={{ width: "15%" }}>Fin</div>
-                <div className="px-2 text-right" style={{ width: "15%" }}>Días</div>
+                <div className="px-3 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "55%" }}>Actividad</div>
+                <div className="px-2 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "15%" }}>Inicio</div>
+                <div className="px-2 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "15%" }}>Fin</div>
+                <div className="px-2 text-right font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "15%" }}>Días</div>
               </div>
-            )}
-            TaskListTable={({ rowHeight: rh, rowWidth, fontFamily, fontSize, tasks: ts, onExpanderClick }) => (
-              <div style={{ fontFamily, fontSize }}>
-                {ts.map((t) => {
-                  const isProject = t.type === "project";
-                  const dur = businessDaysBetween(t.start, t.end);
-                  if (isProject) {
-                    const isOpen = !collapsed[t.id];
+              <div className="relative border-b" style={{ width: totalW, height: HEADER_H }}>
+                {/* month row */}
+                <div className="absolute left-0 right-0 top-0 border-b" style={{ height: HEADER_H / 2 }}>
+                  {monthSpans.map((m, i) => (
+                    <div
+                      key={i}
+                      className="absolute flex items-center justify-center border-r font-semibold capitalize text-muted-foreground"
+                      style={{ left: m.left, width: m.width, top: 0, bottom: 0, fontSize: fontHeader }}
+                      title={m.label}
+                    >
+                      <span className="truncate px-2">{m.label}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* day row */}
+                <div className="absolute left-0 right-0" style={{ top: HEADER_H / 2, bottom: 0 }}>
+                  {days.map((d, i) => {
+                    const dow = d.getDay();
+                    const holiday = isMxHoliday(d);
+                    const isSat = dow === 6;
+                    const showNum = cellW >= 14;
+                    const showDow = cellW >= 22;
+                    const bg = holiday ? "rgba(250,204,21,0.35)" : isSat ? "rgba(0,0,0,0.04)" : "transparent";
                     return (
                       <div
-                        key={t.id}
-                        className="flex cursor-pointer items-center border-b bg-slate-900 text-white hover:bg-slate-800"
-                        style={{ height: rh, width: rowWidth }}
-                        onClick={() => onExpanderClick(t)}
+                        key={i}
+                        className="absolute flex flex-col items-center justify-center border-r text-muted-foreground"
+                        style={{ left: i * cellW, width: cellW, top: 0, bottom: 0, fontSize: Math.max(7, fontHeader - 1), background: bg }}
+                        title={d.toLocaleDateString("es-MX", { weekday: "long", day: "2-digit", month: "short", year: "numeric" })}
                       >
-                        <div className="flex items-center gap-2 px-3 font-semibold" style={{ width: "55%" }}>
-                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                          <span className="truncate" title={t.name}>{t.name}</span>
-                        </div>
-                        <div className="px-2 tabular-nums text-white/80" style={{ width: "15%" }}>{fmtFecha(toISO(t.start))}</div>
-                        <div className="px-2 tabular-nums text-white/80" style={{ width: "15%" }}>{fmtFecha(toISO(t.end))}</div>
-                        <div className="px-2 text-right tabular-nums" style={{ width: "15%" }}>{dur}</div>
+                        {showNum && <span className="tabular-nums leading-none">{d.getDate()}</span>}
+                        {showDow && <span className="leading-none opacity-60" style={{ fontSize: Math.max(6, fontHeader - 3) }}>
+                          {["D","L","M","M","J","V","S"][dow]}
+                        </span>}
                       </div>
                     );
-                  }
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Body rows */}
+            <div style={{ position: "relative", height: bodyH }}>
+              {rows.map((r, ri) => {
+                const top = ri * rowH;
+                if (r.kind === "group") {
+                  const open = !collapsed[r.clave];
+                  const sIdx = findIdx(r.start);
+                  const eIdx = findIdx(r.end);
+                  const span = Math.max(1, eIdx - sIdx + 1);
                   return (
-                    <div
-                      key={t.id}
-                      className="flex items-center border-b last:border-b-0 hover:bg-muted/30"
-                      style={{ height: rh, width: rowWidth }}
-                    >
-                      <div className="truncate px-3 pl-8" style={{ width: "55%" }} title={t.name}>
-                        {truncate(t.name, 25)}
+                    <div key={`g-${r.clave}`} className="absolute left-0 right-0 flex" style={{ top, height: rowH }}>
+                      <div
+                        className="flex cursor-pointer items-center border-b border-r bg-slate-900 text-white hover:bg-slate-800"
+                        style={{ position: "sticky", left: 0, zIndex: 20, width: LEFT_W, fontSize: fontBody }}
+                        onClick={() => setCollapsed((s) => ({ ...s, [r.clave]: !s[r.clave] }))}
+                      >
+                        <div className="flex items-center gap-2 px-3 font-semibold" style={{ width: "55%" }}>
+                          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          <span className="truncate" title={`${r.clave} · ${r.nombre}`}>{r.clave} · {r.nombre}</span>
+                        </div>
+                        <div className="px-2 tabular-nums text-white/80" style={{ width: "15%" }}>{fmtFecha(toISO(r.start))}</div>
+                        <div className="px-2 tabular-nums text-white/80" style={{ width: "15%" }}>{fmtFecha(toISO(r.end))}</div>
+                        <div className="px-2 text-right tabular-nums" style={{ width: "15%" }}>{businessDaysBetween(r.start, r.end)}</div>
                       </div>
-                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "15%" }}>
-                        {fmtFecha(toISO(t.start))}
-                      </div>
-                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "15%" }}>
-                        {fmtFecha(toISO(t.end))}
-                      </div>
-                      <div className="px-2 text-right tabular-nums" style={{ width: "15%" }}>
-                        {dur}
+                      <div className="relative border-b" style={{ width: totalW }}>
+                        <DayBackground days={days} cellW={cellW} />
+                        <div
+                          className="absolute rounded-sm"
+                          style={{
+                            left: sIdx * cellW + 1,
+                            width: span * cellW - 2,
+                            top: rowH * 0.35,
+                            height: rowH * 0.3,
+                            background: r.color,
+                            opacity: 0.85,
+                          }}
+                          title={`${r.clave} · ${r.nombre}`}
+                        />
                       </div>
                     </div>
                   );
-                })}
-              </div>
-            )}
-            TooltipContent={({ task }) => (
-              <div className="rounded-md border bg-popover px-3 py-2 text-xs shadow">
-                <div className="font-semibold">{task.name}</div>
-                <div>{toISO(task.start)} → {toISO(task.end)}</div>
-                <div>{businessDaysBetween(task.start, task.end)} días hábiles</div>
-              </div>
-            )}
-          />
+                }
+                const a = r.act;
+                const start = new Date(a.fecha_inicio);
+                const end = new Date(a.fecha_fin);
+                const sIdx = findIdx(start);
+                const eIdx = findIdx(end);
+                const span = Math.max(1, eIdx - sIdx + 1);
+                return (
+                  <div key={`t-${a.id}`} className="absolute left-0 right-0 flex hover:bg-muted/20" style={{ top, height: rowH }}>
+                    <div
+                      className="flex items-center border-b border-r bg-card"
+                      style={{ position: "sticky", left: 0, zIndex: 10, width: LEFT_W, fontSize: fontBody }}
+                    >
+                      <div className="truncate px-3 pl-8" style={{ width: "55%" }} title={a.nombre_actividad}>
+                        {truncate(a.nombre_actividad, 30)}
+                      </div>
+                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "15%" }}>{fmtFecha(a.fecha_inicio)}</div>
+                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "15%" }}>{fmtFecha(a.fecha_fin)}</div>
+                      <div className="px-2 text-right tabular-nums" style={{ width: "15%" }}>{businessDaysBetween(start, end)}</div>
+                    </div>
+                    <div className="relative border-b" style={{ width: totalW }}>
+                      <DayBackground days={days} cellW={cellW} />
+                      {/* Saturday half-day shading on bar */}
+                      <div
+                        className="absolute cursor-pointer rounded-sm shadow-sm transition-opacity hover:opacity-90"
+                        style={{
+                          left: sIdx * cellW + 1,
+                          width: span * cellW - 2,
+                          top: rowH * 0.2,
+                          height: rowH * 0.6,
+                          background: r.color,
+                        }}
+                        onClick={() => setEditing({ ...a })}
+                        title={`${a.nombre_actividad}\n${fmtFecha(a.fecha_inicio)} → ${fmtFecha(a.fecha_fin)}\n${businessDaysBetween(start, end)} días hábiles`}
+                      >
+                        {cellW * span > 60 && (
+                          <span className="block truncate px-1.5 leading-none text-white" style={{ fontSize: Math.max(8, fontBody - 2), paddingTop: Math.max(2, (rowH * 0.6 - fontBody) / 2) }}>
+                            {a.nombre_actividad}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
+
+      <p className="text-xs text-muted-foreground">
+        Tip: mantén <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px]">Ctrl</kbd> y usa la rueda del mouse para hacer zoom. Domingos se omiten, sábados aparecen en gris claro y festivos oficiales en amarillo.
+      </p>
 
       <AlertasCompra obraId={obraId} actividades={actividades ?? []} />
 
@@ -684,6 +795,34 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+function DayBackground({ days, cellW }: { days: Date[]; cellW: number }) {
+  // Render only highlighted (Saturday / holiday) cells + thin separators every 7 cells
+  return (
+    <>
+      {days.map((d, i) => {
+        const dow = d.getDay();
+        const holiday = isMxHoliday(d);
+        const isSat = dow === 6;
+        const isMonday = dow === 1;
+        if (!holiday && !isSat && !isMonday) return null;
+        const bg = holiday ? "rgba(250,204,21,0.28)" : isSat ? "rgba(0,0,0,0.04)" : "transparent";
+        return (
+          <div
+            key={i}
+            className="absolute top-0 bottom-0"
+            style={{
+              left: i * cellW,
+              width: cellW,
+              background: bg,
+              borderLeft: isMonday ? "1px solid hsl(var(--border))" : undefined,
+            }}
+          />
+        );
+      })}
+    </>
   );
 }
 
