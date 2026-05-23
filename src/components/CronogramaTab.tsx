@@ -677,8 +677,7 @@ export function CronogramaTab({ obraId }: { obraId: string }) {
                           width: span * cellW - 2,
                           top: rowH * 0.2,
                           height: rowH * 0.6,
-                          background: a.color ?? r.color,
-                          backgroundColor: r.color,
+                          background: r.color,
                         }}
                         onClick={() => setEditing({ ...a })}
                         title={`${a.nombre_actividad}\n${fmtFecha(a.fecha_inicio)} → ${fmtFecha(a.fecha_fin)}\n${businessDaysBetween(start, end)} días hábiles`}
