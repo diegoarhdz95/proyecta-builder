@@ -113,15 +113,29 @@ export function generateCotizacionPDF(opts: {
       const spec = it.concepto?.especificaciones?.trim();
       body.push([
         { content: String(counter) },
-        {
-          content: spec ? `${it.descripcion}\n${spec}` : it.descripcion,
-          styles: { fontStyle: "bold" },
-        },
+        { content: it.descripcion, styles: { fontStyle: "bold" } },
         { content: it.unidad },
         { content: String(Number(it.cantidad)) },
         { content: currency(Number(it.precio_unitario_final)) },
         { content: currency(Number(it.subtotal)) },
       ]);
+      if (spec) {
+        body.push([
+          { content: "" },
+          {
+            content: spec,
+            styles: {
+              fontStyle: "italic",
+              textColor: [150, 150, 150],
+              fontSize: 7,
+            },
+          },
+          { content: "" },
+          { content: "" },
+          { content: "" },
+          { content: "" },
+        ]);
+      }
     });
     const subPartida = group.reduce((s, i) => s + Number(i.subtotal || 0), 0);
 
@@ -175,7 +189,8 @@ export function generateCotizacionPDF(opts: {
 
   const items3: Array<[string, string]> = [
     ["Vigencia", "30 días naturales a partir de la fecha de emisión."],
-    ...(proyecto.tiempo_ejecucion_incluir && proyecto.tiempo_ejecucion_texto
+    ...(((proyecto as { incluir_tiempo_pdf?: boolean | null }).incluir_tiempo_pdf ||
+      proyecto.tiempo_ejecucion_incluir) && proyecto.tiempo_ejecucion_texto
       ? [["Tiempo estimado de ejecución", proyecto.tiempo_ejecucion_texto] as [string, string]]
       : []),
     ["Anticipo", "30% del total para arranque del proyecto."],
