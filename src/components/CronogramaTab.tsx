@@ -727,7 +727,7 @@ function AlertasCompra({ obraId, actividades }: { obraId: string; actividades: A
     enabled: actividadIds.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("alertas_compra_estado")
+        .from("alertas_compra")
         .select("*")
         .in("actividad_id", actividadIds);
       if (error) throw error;
@@ -771,13 +771,21 @@ function AlertasCompra({ obraId, actividades }: { obraId: string; actividades: A
   }, [actividades, materiales, estados]);
 
   async function setEstado(actividadId: string, materialId: string, estado: Estado) {
-    const { error } = await supabase
-      .from("alertas_compra_estado")
-      .upsert(
-        { actividad_id: actividadId, material_id: materialId, estado },
-        { onConflict: "actividad_id,material_id" },
-      );
-    if (error) return toast.error(error.message);
+    const existente = (estados ?? []).find(
+      (x) => x.actividad_id === actividadId && x.material_id === materialId,
+    );
+    if (existente) {
+      const { error } = await supabase
+        .from("alertas_compra")
+        .update({ estado })
+        .eq("id", existente.id);
+      if (error) return toast.error(error.message);
+    } else {
+      const { error } = await supabase
+        .from("alertas_compra")
+        .insert({ actividad_id: actividadId, material_id: materialId, estado });
+      if (error) return toast.error(error.message);
+    }
     qc.invalidateQueries({ queryKey: ["alertas_estado", obraId] });
   }
 
