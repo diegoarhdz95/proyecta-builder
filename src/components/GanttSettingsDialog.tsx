@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Trash2, Plus, Save } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase, DESPACHO_ID } from "@/lib/supabase";
 import { toast } from "sonner";
 import type { GanttSettings } from "@/lib/gantt-engine";
 
@@ -22,8 +22,28 @@ export function GanttSettingsDialog({
   const [s, setS] = useState<GanttSettings>(settings);
   const [nuevoFestivo, setNuevoFestivo] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => { setS(settings); }, [settings, open]);
+  useEffect(() => { setS(settings); }, [settings]);
+
+  // Al abrir el modal, releer SIEMPRE desde Supabase
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      const { data, error } = await supabase
+        .from("gantt_settings")
+        .select("*")
+        .eq("despacho_id", DESPACHO_ID)
+        .maybeSingle();
+      if (!cancelled) {
+        if (!error && data) setS(data as GanttSettings);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
 
   async function guardar() {
     setSaving(true);
@@ -42,9 +62,9 @@ export function GanttSettingsDialog({
       });
     setSaving(false);
     if (error) return toast.error(error.message);
+    onOpenChange(false);
     toast.success("Configuración guardada");
     onSaved(s);
-    onOpenChange(false);
   }
 
   return (
