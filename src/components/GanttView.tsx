@@ -3,12 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
-  ZoomIn, ZoomOut, Maximize2, ChevronDown, ChevronRight, Save,
+  ZoomIn, ZoomOut, Maximize2, ChevronDown, ChevronRight, Save, Printer,
 } from "lucide-react";
 import {
   Calendar, PARTIDA_ORDER, colorFor, toISO,
   type GanttSettings,
 } from "@/lib/gantt-engine";
+import html2canvas from "html2canvas-pro";
+import jsPDF from "jspdf";
 
 export type ActividadView = {
   id: string;
@@ -46,18 +48,18 @@ export function GanttView({
   actividades,
   settings,
   onChange,
-  onSave,
   readonly = false,
-  saving = false,
   toolbarExtra,
+  projectName,
+  folio,
 }: {
   actividades: ActividadView[];
   settings: GanttSettings;
   onChange?: (next: ActividadView[]) => void;
-  onSave?: () => void;
   readonly?: boolean;
-  saving?: boolean;
   toolbarExtra?: React.ReactNode;
+  projectName?: string;
+  folio?: string;
 }) {
   const cal = useMemo(() => new Calendar(settings), [settings]);
   const [view, setView] = useState<GView>("week");
@@ -65,8 +67,9 @@ export function GanttView({
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState<ActividadView | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
   const [wrapWidth, setWrapWidth] = useState(1200);
-  const [dirty, setDirty] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!wrapRef.current) return;
@@ -212,7 +215,6 @@ export function GanttView({
       };
     });
     onChange(next);
-    setDirty(true);
   }
 
   function applyEdit(next: ActividadView) {
@@ -238,8 +240,68 @@ export function GanttView({
       updated.duracion_dias = cal.businessDaysBetween(fi, ff);
     }
     onChange(actividades.map((a) => (a.id === updated.id ? updated : a)));
-    setDirty(true);
     setEditing(null);
+  }
+
+  async function exportarPDF() {
+    if (!innerRef.current || actividades.length === 0) return;
+    setExporting(true);
+    try {
+      const node = innerRef.current;
+      const canvas = await html2canvas(node, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        width: node.scrollWidth,
+        height: node.scrollHeight,
+        windowWidth: node.scrollWidth,
+        windowHeight: node.scrollHeight,
+      });
+      // Landscape Letter: 792 x 612 pt
+      const pdf = new jsPDF({ unit: "pt", format: "letter", orientation: "landscape" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 28;
+
+      // Header
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(13);
+      pdf.setTextColor(15, 23, 66);
+      pdf.text(projectName || "Cronograma", margin, margin + 4);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      pdf.setTextColor(110, 116, 130);
+      const meta = [
+        folio ? `Folio: ${folio}` : null,
+        `Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`,
+      ].filter(Boolean).join("   ·   ");
+      pdf.text(meta, margin, margin + 20);
+      pdf.setDrawColor(220, 224, 232);
+      pdf.line(margin, margin + 28, pageW - margin, margin + 28);
+
+      // Imagen del Gantt escalada para caber
+      const headerH = margin + 36;
+      const footerH = 24;
+      const availW = pageW - margin * 2;
+      const availH = pageH - headerH - footerH - margin;
+      const imgRatio = canvas.width / canvas.height;
+      let imgW = availW;
+      let imgH = imgW / imgRatio;
+      if (imgH > availH) { imgH = availH; imgW = imgH * imgRatio; }
+      const imgX = margin + (availW - imgW) / 2;
+      const imgY = headerH;
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", imgX, imgY, imgW, imgH);
+
+      // Pie
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(9);
+      pdf.setTextColor(110, 116, 130);
+      pdf.text("Grupo Proyecta", pageW / 2, pageH - margin / 2, { align: "center" });
+
+      const safeFolio = (folio || "Cronograma").replace(/[^a-zA-Z0-9-_]/g, "-");
+      pdf.save(`${safeFolio}-Cronograma.pdf`);
+    } finally {
+      setExporting(false);
+    }
   }
 
   const totals = useMemo(() => {
@@ -280,12 +342,16 @@ export function GanttView({
             onClick={() => setZoom((z) => clamp(0.1, +(z * 1.2).toFixed(3), 6))} title="Acercar">
             <ZoomIn className="h-3.5 w-3.5" />
           </Button>
-          {onSave && (
-            <Button size="sm" className="h-8 px-2 text-xs ml-2" onClick={onSave} disabled={saving || !dirty}>
-              <Save className="h-3.5 w-3.5 mr-1" />
-              {saving ? "…" : "Guardar"}
-            </Button>
-          )}
+          <Button
+            size="sm"
+            className="h-8 px-2 text-xs ml-2"
+            onClick={exportarPDF}
+            disabled={exporting || actividades.length === 0}
+            title="Exportar PDF"
+          >
+            <Printer className="h-3.5 w-3.5 mr-1" />
+            {exporting ? "…" : "Exportar PDF"}
+          </Button>
         </div>
       </div>
 
@@ -308,7 +374,7 @@ export function GanttView({
         </div>
       ) : (
         <div ref={wrapRef} className="relative w-full overflow-auto rounded-lg border bg-card" style={{ maxHeight: 600 }}>
-          <div style={{ width: LEFT_W + totalW, position: "relative" }}>
+          <div ref={innerRef} style={{ width: LEFT_W + totalW, position: "relative", background: "#ffffff" }}>
             {/* Header */}
             <div className="flex bg-muted/60 backdrop-blur" style={{ position: "sticky", top: 0, zIndex: 30, height: HEADER_H }}>
               <div className="flex items-center border-b border-r bg-muted/80"
