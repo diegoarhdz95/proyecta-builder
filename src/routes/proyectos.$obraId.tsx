@@ -64,7 +64,7 @@ function ProyectoPage() {
   const { obraId } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "pagos" | "expediente" | "cronograma">("cotizaciones");
+  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "pagos" | "expediente">("cotizaciones");
 
   const { data: obra } = useQuery({
     queryKey: ["obra", obraId],
@@ -176,7 +176,6 @@ function ProyectoPage() {
             <TabsTrigger value="cotizaciones">Cotizaciones</TabsTrigger>
             <TabsTrigger value="desglose">Desglose financiero</TabsTrigger>
             <TabsTrigger value="pagos">Pagos</TabsTrigger>
-            <TabsTrigger value="cronograma">Cronograma</TabsTrigger>
             <TabsTrigger value="expediente">Expediente</TabsTrigger>
           </TabsList>
 
@@ -200,11 +199,15 @@ function ProyectoPage() {
                     <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">Sin cotizaciones aún</td></tr>
                   )}
                   {cotizaciones?.map((p) => (
-                    <tr key={p.id} className="border-t hover:bg-muted/30">
+                    <tr
+                      key={p.id}
+                      className="cursor-pointer border-t hover:bg-muted/30"
+                      onClick={() => navigate({ to: "/cotizaciones/$id", params: { id: p.id } })}
+                    >
                       <td className="px-4 py-3 font-mono text-xs">{p.folio}</td>
                       <td className="px-4 py-3 font-medium">{p.nombre_proyecto}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{currency(p.total_con_iva)}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
@@ -223,9 +226,8 @@ function ProyectoPage() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-3">
-                          <Link to="/cotizaciones/$id/editar" params={{ id: p.id }} className="text-primary hover:underline">Editar</Link>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" aria-label="Eliminar cotización">
@@ -269,10 +271,6 @@ function ProyectoPage() {
 
           <TabsContent value="expediente" className="mt-6">
             <ExpedienteTab obraId={obraId} />
-          </TabsContent>
-
-          <TabsContent value="cronograma" className="mt-6">
-            <CronogramaTab obraId={obraId} />
           </TabsContent>
         </Tabs>
       </main>
