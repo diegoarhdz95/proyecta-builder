@@ -22,7 +22,6 @@ export function GanttSettingsDialog({
   const [s, setS] = useState<GanttSettings>(settings);
   const [nuevoFestivo, setNuevoFestivo] = useState("");
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => { setS(settings); }, [settings]);
 
@@ -30,17 +29,13 @@ export function GanttSettingsDialog({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setLoading(true);
     (async () => {
       const { data, error } = await supabase
         .from("gantt_settings")
         .select("*")
         .eq("despacho_id", DESPACHO_ID)
         .maybeSingle();
-      if (!cancelled) {
-        if (!error && data) setS(data as GanttSettings);
-        setLoading(false);
-      }
+      if (!cancelled && !error && data) setS(data as GanttSettings);
     })();
     return () => { cancelled = true; };
   }, [open]);
