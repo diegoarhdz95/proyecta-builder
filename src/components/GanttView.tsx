@@ -9,8 +9,6 @@ import {
   Calendar, PARTIDA_ORDER, colorFor, toISO,
   type GanttSettings,
 } from "@/lib/gantt-engine";
-import jsPDF from "jspdf";
-import autoTable, { type RowInput } from "jspdf-autotable";
 
 export type ActividadView = {
   id: string;
