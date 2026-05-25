@@ -360,10 +360,8 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmarGuardar} disabled={saving}>
-              {saving ? "Guardando…" : "Confirmar y guardar"}
-            </AlertDialogAction>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarGuardar}>Confirmar y guardar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
