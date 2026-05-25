@@ -67,7 +67,7 @@ export function GanttView({
   const wrapRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [wrapWidth, setWrapWidth] = useState(1200);
-  const [exporting, setExporting] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!wrapRef.current) return;
@@ -241,107 +241,87 @@ export function GanttView({
     setEditing(null);
   }
 
-  async function exportarPDF() {
-    if (actividades.length === 0) return;
-    setExporting(true);
-    try {
-      const pdf = new jsPDF({ unit: "pt", format: "letter", orientation: "landscape" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const margin = 36;
+  function imprimirGantt() {
+    if (!innerRef.current || actividades.length === 0) return;
+    const contentHTML = innerRef.current.outerHTML;
+    const contentWidth = LEFT_W + totalW;
 
-      // Encabezado
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(14);
-      pdf.setTextColor(15, 23, 66);
-      pdf.text(projectName || "Cronograma", margin, margin);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
-      pdf.setTextColor(110, 116, 130);
-      const meta = [
-        folio ? `Folio: ${folio}` : null,
-        `Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`,
-      ].filter(Boolean).join("   ·   ");
-      pdf.text(meta, margin, margin + 16);
-      pdf.setDrawColor(220, 224, 232);
-      pdf.line(margin, margin + 24, pageW - margin, margin + 24);
+    // Recolectar estilos del documento (Tailwind compilado, etc.)
+    const styleTags = Array.from(document.querySelectorAll('style'))
+      .map((s) => `<style>${s.innerHTML}</style>`)
+      .join("\n");
+    const linkTags = Array.from(
+      document.querySelectorAll('link[rel="stylesheet"]'),
+    )
+      .map((l) => l.outerHTML)
+      .join("\n");
 
-      // Construir filas agrupadas por partida
-      const NAVY: [number, number, number] = [15, 23, 66];
-      const body: RowInput[] = [];
-      for (const g of grupos) {
-        if (g.items.length === 0) continue;
-        body.push([
-          {
-            content: `${g.clave} · ${g.nombre}`.toUpperCase(),
-            colSpan: 5,
-            styles: {
-              fillColor: NAVY,
-              textColor: 255,
-              fontStyle: "bold",
-              fontSize: 9,
-              halign: "left",
-            },
-          },
-        ]);
-        for (const a of g.items) {
-          body.push([
-            g.clave,
-            a.nombre_actividad,
-            fmtFecha(a.fecha_inicio),
-            fmtFecha(a.fecha_fin),
-            { content: String(Number(a.duracion_dias).toFixed(1)), styles: { halign: "right" } },
-          ]);
-        }
-      }
+    const fechaTxt = new Date().toLocaleDateString("es-MX", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
 
-      autoTable(pdf, {
-        startY: margin + 32,
-        head: [["Partida", "Actividad", "Inicio", "Fin", "Días"]],
-        body,
-        styles: { font: "helvetica", fontSize: 9, cellPadding: 3, textColor: [40, 40, 40] },
-        headStyles: { fillColor: [240, 242, 247], textColor: NAVY, fontStyle: "bold", fontSize: 9 },
-        columnStyles: {
-          0: { cellWidth: 60 },
-          1: { cellWidth: "auto" },
-          2: { cellWidth: 70, halign: "center" },
-          3: { cellWidth: 70, halign: "center" },
-          4: { cellWidth: 50, halign: "right" },
-        },
-        margin: { left: margin, right: margin, bottom: margin + 24 },
-        theme: "grid",
-        rowPageBreak: "avoid",
-      });
+    // Letter landscape (11in x 8.5in) con márgenes 0.4in => ancho útil ~10.2in @ 96dpi ≈ 979px
+    const PRINT_WIDTH_PX = 1040; // un poco más generoso
+    const scale = Math.min(1, PRINT_WIDTH_PX / contentWidth);
 
-      // Resumen total
-      // @ts-expect-error lastAutoTable from plugin
-      const finalY = pdf.lastAutoTable.finalY + 14;
-      if (totals) {
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(10);
-        pdf.setTextColor(...NAVY);
-        pdf.text(
-          `Duración total del proyecto: ${totals.businessDays} días hábiles (${totals.weeks} semanas aproximadamente)`,
-          margin,
-          finalY,
-        );
-      }
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>${(folio || "Cronograma")} - Cronograma</title>
+${linkTags}
+${styleTags}
+<style>
+  @page { size: letter landscape; margin: 0.4in 0.4in 0.6in 0.4in; }
+  html, body { background: #ffffff !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #111827; }
+  .print-header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px solid #0f1742; padding-bottom: 10px; margin-bottom: 12px; }
+  .print-header h1 { margin: 0 0 4px 0; font-size: 16px; color: #0f1742; font-weight: 700; }
+  .print-header .meta { font-size: 10px; color: #6b7280; }
+  .print-header .brand { font-size: 11px; font-weight: 600; color: #0f1742; text-align: right; }
+  .print-scale { transform-origin: top left; transform: scale(${scale}); width: ${contentWidth}px; }
+  .print-footer { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; font-size: 9px; color: #6b7280; padding: 4px 0; border-top: 1px solid #e5e7eb; background: #fff; }
+  .print-footer .pgnum::after { content: counter(page) " / " counter(pages); }
+  /* Ocultar barras de scroll en impresión */
+  .print-scale, .print-scale * { overflow: visible !important; max-height: none !important; }
+</style>
+</head>
+<body>
+  <div class="print-header">
+    <div>
+      <h1>${(projectName || "Cronograma").replace(/</g, "&lt;")}</h1>
+      <div class="meta">${folio ? `Folio: ${folio} · ` : ""}Generado: ${fechaTxt}</div>
+    </div>
+    <div class="brand">Grupo Proyecta</div>
+  </div>
+  <div class="print-scale">${contentHTML}</div>
+  <div class="print-footer">
+    <span>Grupo Proyecta</span>
+    <span class="pgnum"></span>
+  </div>
+</body>
+</html>`;
 
-      // Pie de página en todas las páginas
-      const pages = pdf.getNumberOfPages();
-      for (let i = 1; i <= pages; i++) {
-        pdf.setPage(i);
-        pdf.setFont("helvetica", "italic");
-        pdf.setFontSize(9);
-        pdf.setTextColor(110, 116, 130);
-        pdf.text("Grupo Proyecta", pageW / 2, pageH - margin / 2, { align: "center" });
-        pdf.text(`${i} / ${pages}`, pageW - margin, pageH - margin / 2, { align: "right" });
-      }
+    const w = window.open("", "_blank", "width=1200,height=800");
+    if (!w) return;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
 
-      const safeFolio = (folio || "Cronograma").replace(/[^a-zA-Z0-9-_]/g, "-");
-      pdf.save(`${safeFolio}-Cronograma.pdf`);
-    } finally {
-      setExporting(false);
+    const triggerPrint = () => {
+      try { w.focus(); w.print(); } catch { /* ignore */ }
+      const close = () => { try { w.close(); } catch { /* ignore */ } };
+      w.onafterprint = close;
+      // fallback por si onafterprint no dispara
+      setTimeout(close, 60000);
+    };
+
+    if (w.document.readyState === "complete") {
+      setTimeout(triggerPrint, 400);
+    } else {
+      w.addEventListener("load", () => setTimeout(triggerPrint, 400));
     }
   }
 
