@@ -27,7 +27,6 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmRegenOpen, setConfirmRegenOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState<ActividadView[] | null>(null);
   const [manualMode, setManualMode] = useState(false);
   const [startDate, setStartDate] = useState("");
@@ -143,7 +142,6 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
 
   async function confirmarGuardar() {
     if (!preview) return;
-    setSaving(true);
     try {
       const { error: dErr } = await supabase
         .from("cronograma_actividades").delete().eq("cotizacion_id", cotizacion.id);
@@ -157,8 +155,6 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
       qc.invalidateQueries({ queryKey: ["cronograma_actividades", cotizacion.id] });
     } catch (err) {
       toast.error((err as Error).message);
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -244,40 +240,6 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
     }
   }
 
-  async function guardarEditor() {
-    if (!editorActs) return;
-    setSaving(true);
-    try {
-      // Si vienen de DB → UPDATE en batch; si vienen de modo manual → DELETE+INSERT.
-      const fromManual = editorActs.some((a) => a.id.startsWith("manual-"));
-      if (fromManual) {
-        await supabase.from("cronograma_actividades").delete().eq("cotizacion_id", cotizacion.id);
-        const rows = editorActs.map(({ id: _id, ...rest }) => rest);
-        const { error } = await supabase.from("cronograma_actividades").insert(rows);
-        if (error) throw error;
-        setManualMode(false);
-      } else {
-        for (const a of editorActs) {
-          const { error } = await supabase
-            .from("cronograma_actividades")
-            .update({
-              nombre_actividad: a.nombre_actividad,
-              fecha_inicio: a.fecha_inicio,
-              fecha_fin: a.fecha_fin,
-              duracion_dias: a.duracion_dias,
-            })
-            .eq("id", a.id);
-          if (error) throw error;
-        }
-      }
-      toast.success("Cambios guardados");
-      qc.invalidateQueries({ queryKey: ["cronograma_actividades", cotizacion.id] });
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
 
   const showPreview = !!preview;
   const showEditor = !showPreview && (manualMode || hasSavedCronograma) && editorActs && editorActs.length > 0;
