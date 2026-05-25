@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase, DESPACHO_ID } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, Sparkles, CheckCircle2, PencilLine, RefreshCw } from "lucide-react";
+import { Settings, Sparkles, CheckCircle2, PencilLine, BarChart2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { GanttSettingsDialog } from "./GanttSettingsDialog";
 import { GanttView, type ActividadView } from "./GanttView";
 import {
@@ -24,6 +25,7 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
   const qc = useQueryClient();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmRegenOpen, setConfirmRegenOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState<ActividadView[] | null>(null);
@@ -67,6 +69,17 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
   });
 
   const [editorActs, setEditorActs] = useState<ActividadView[] | null>(null);
+  const hasSavedCronograma = (actividadesDb ?? []).length > 0;
+  const savedStart = actividadesDb?.[0]?.fecha_inicio ?? null;
+  const lastSyncedStartRef = useRef<string | null>(null);
+
+  // Cuando hay cronograma guardado, sincroniza el input con la fecha real guardada
+  useEffect(() => {
+    if (savedStart) {
+      setStartDate(savedStart);
+      lastSyncedStartRef.current = savedStart;
+    }
+  }, [savedStart]);
 
   useEffect(() => {
     // Sincroniza editor con DB cuando no estamos en modo preview/manual
@@ -149,6 +162,57 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
     }
   }
 
+  // Desplaza todas las actividades manteniendo duraciones/dependencias
+  async function shiftAllDates(newStartIso: string) {
+    if (!actividadesDb || actividadesDb.length === 0 || !savedStart) return;
+    const oldD = new Date(`${savedStart}T00:00:00`);
+    const newD = new Date(`${newStartIso}T00:00:00`);
+    if (isNaN(newD.getTime())) return;
+    const delta = Math.round((newD.getTime() - oldD.getTime()) / 86400000);
+    if (delta === 0) return;
+    try {
+      for (const a of actividadesDb) {
+        const fi = new Date(`${a.fecha_inicio}T00:00:00`); fi.setDate(fi.getDate() + delta);
+        const ff = new Date(`${a.fecha_fin}T00:00:00`); ff.setDate(ff.getDate() + delta);
+        const { error } = await supabase
+          .from("cronograma_actividades")
+          .update({ fecha_inicio: toISO(fi), fecha_fin: toISO(ff) })
+          .eq("id", a.id);
+        if (error) throw error;
+      }
+      lastSyncedStartRef.current = newStartIso;
+      toast.success("Fechas actualizadas");
+      qc.invalidateQueries({ queryKey: ["cronograma_actividades", cotizacion.id] });
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
+
+  // Recalcula con nuevos settings (mantiene fecha de inicio guardada)
+  async function recalcularConSettings(nuevos: GanttSettings) {
+    if (!hasSavedCronograma) return;
+    const startIso = savedStart ?? startDate;
+    if (!startIso) return;
+    try {
+      const conceptos = await fetchConceptos();
+      if (conceptos.length === 0) return;
+      const start = new Date(`${startIso}T00:00:00`);
+      const drafts = generarCronograma(conceptos, start, nuevos);
+      await supabase.from("cronograma_actividades").delete().eq("cotizacion_id", cotizacion.id);
+      const { error } = await supabase.from("cronograma_actividades").insert(drafts);
+      if (error) throw error;
+      toast.success("Cronograma actualizado con nueva configuración");
+      qc.invalidateQueries({ queryKey: ["cronograma_actividades", cotizacion.id] });
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
+
+  async function regenerarConfirmado() {
+    setConfirmRegenOpen(false);
+    await generarPreview();
+  }
+
   async function iniciarManual() {
     setGenerating(true);
     try {
@@ -215,7 +279,6 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
     }
   }
 
-  const hasSavedCronograma = (actividadesDb ?? []).length > 0;
   const showPreview = !!preview;
   const showEditor = !showPreview && (manualMode || hasSavedCronograma) && editorActs && editorActs.length > 0;
 
@@ -232,9 +295,22 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
               <Settings className="h-4 w-4 mr-1" /> Settings
             </Button>
             {hasSavedCronograma && !showPreview && (
-              <Button variant="ghost" size="sm" onClick={generarPreview} disabled={generating} title="Regenerar con IA">
-                <RefreshCw className={`h-4 w-4 ${generating ? "animate-spin" : ""}`} />
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground"
+                      onClick={() => setConfirmRegenOpen(true)}
+                      disabled={generating}
+                    >
+                      <BarChart2 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Regenerar cronograma</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
         </div>
@@ -242,12 +318,25 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
         <div className="flex items-end gap-2 flex-wrap">
           <div>
             <label className="text-[11px] text-muted-foreground">Fecha de inicio de obra</label>
-            <Input type="date" className="h-9 w-44" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <Input
+              type="date"
+              className="h-9 w-44"
+              value={startDate}
+              onChange={(e) => {
+                const v = e.target.value;
+                setStartDate(v);
+                if (hasSavedCronograma && v && v !== lastSyncedStartRef.current) {
+                  void shiftAllDates(v);
+                }
+              }}
+            />
           </div>
-          <Button onClick={generarPreview} disabled={generating}>
-            <Sparkles className="h-4 w-4 mr-1" />
-            {generating ? "Generando…" : "Generar preview Gantt IA"}
-          </Button>
+          {!hasSavedCronograma && (
+            <Button size="lg" onClick={generarPreview} disabled={generating}>
+              <Sparkles className="h-4 w-4 mr-2" />
+              {generating ? "Generando…" : "📅 Generar preview Gantt IA"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -294,7 +383,10 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         settings={settings}
-        onSaved={() => qc.invalidateQueries({ queryKey: ["gantt_settings", DESPACHO_ID] })}
+        onSaved={(nuevos) => {
+          qc.invalidateQueries({ queryKey: ["gantt_settings", DESPACHO_ID] });
+          void recalcularConSettings(nuevos);
+        }}
       />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -310,6 +402,21 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
             <AlertDialogAction onClick={confirmarGuardar} disabled={saving}>
               {saving ? "Guardando…" : "Confirmar y guardar"}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmRegenOpen} onOpenChange={setConfirmRegenOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Regenerar cronograma?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se perderán los ajustes manuales realizados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={regenerarConfirmado}>Regenerar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
