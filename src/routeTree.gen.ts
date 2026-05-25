@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProyectosNuevoRouteImport } from './routes/proyectos.nuevo'
 import { Route as ProyectosObraIdRouteImport } from './routes/proyectos.$obraId'
 import { Route as CotizacionesNuevaRouteImport } from './routes/cotizaciones.nueva'
+import { Route as CotizacionesIdRouteImport } from './routes/cotizaciones.$id'
 import { Route as CotizacionesIdResumenRouteImport } from './routes/cotizaciones.$id.resumen'
 import { Route as CotizacionesIdEditarRouteImport } from './routes/cotizaciones.$id.editar'
 import { Route as CotizacionesIdDesgloseRouteImport } from './routes/cotizaciones.$id.desglose'
@@ -49,26 +50,32 @@ const CotizacionesNuevaRoute = CotizacionesNuevaRouteImport.update({
   path: '/cotizaciones/nueva',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CotizacionesIdResumenRoute = CotizacionesIdResumenRouteImport.update({
-  id: '/cotizaciones/$id/resumen',
-  path: '/cotizaciones/$id/resumen',
+const CotizacionesIdRoute = CotizacionesIdRouteImport.update({
+  id: '/cotizaciones/$id',
+  path: '/cotizaciones/$id',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CotizacionesIdResumenRoute = CotizacionesIdResumenRouteImport.update({
+  id: '/resumen',
+  path: '/resumen',
+  getParentRoute: () => CotizacionesIdRoute,
 } as any)
 const CotizacionesIdEditarRoute = CotizacionesIdEditarRouteImport.update({
-  id: '/cotizaciones/$id/editar',
-  path: '/cotizaciones/$id/editar',
-  getParentRoute: () => rootRouteImport,
+  id: '/editar',
+  path: '/editar',
+  getParentRoute: () => CotizacionesIdRoute,
 } as any)
 const CotizacionesIdDesgloseRoute = CotizacionesIdDesgloseRouteImport.update({
-  id: '/cotizaciones/$id/desglose',
-  path: '/cotizaciones/$id/desglose',
-  getParentRoute: () => rootRouteImport,
+  id: '/desglose',
+  path: '/desglose',
+  getParentRoute: () => CotizacionesIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/proveedores': typeof ProveedoresRoute
+  '/cotizaciones/$id': typeof CotizacionesIdRouteWithChildren
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
   '/proyectos/$obraId': typeof ProyectosObraIdRoute
   '/proyectos/nuevo': typeof ProyectosNuevoRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/proveedores': typeof ProveedoresRoute
+  '/cotizaciones/$id': typeof CotizacionesIdRouteWithChildren
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
   '/proyectos/$obraId': typeof ProyectosObraIdRoute
   '/proyectos/nuevo': typeof ProyectosNuevoRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/proveedores': typeof ProveedoresRoute
+  '/cotizaciones/$id': typeof CotizacionesIdRouteWithChildren
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
   '/proyectos/$obraId': typeof ProyectosObraIdRoute
   '/proyectos/nuevo': typeof ProyectosNuevoRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/proveedores'
+    | '/cotizaciones/$id'
     | '/cotizaciones/nueva'
     | '/proyectos/$obraId'
     | '/proyectos/nuevo'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/proveedores'
+    | '/cotizaciones/$id'
     | '/cotizaciones/nueva'
     | '/proyectos/$obraId'
     | '/proyectos/nuevo'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/proveedores'
+    | '/cotizaciones/$id'
     | '/cotizaciones/nueva'
     | '/proyectos/$obraId'
     | '/proyectos/nuevo'
@@ -139,12 +151,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CatalogoRoute: typeof CatalogoRoute
   ProveedoresRoute: typeof ProveedoresRoute
+  CotizacionesIdRoute: typeof CotizacionesIdRouteWithChildren
   CotizacionesNuevaRoute: typeof CotizacionesNuevaRoute
   ProyectosObraIdRoute: typeof ProyectosObraIdRoute
   ProyectosNuevoRoute: typeof ProyectosNuevoRoute
-  CotizacionesIdDesgloseRoute: typeof CotizacionesIdDesgloseRoute
-  CotizacionesIdEditarRoute: typeof CotizacionesIdEditarRoute
-  CotizacionesIdResumenRoute: typeof CotizacionesIdResumenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -191,51 +201,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CotizacionesNuevaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cotizaciones/$id': {
+      id: '/cotizaciones/$id'
+      path: '/cotizaciones/$id'
+      fullPath: '/cotizaciones/$id'
+      preLoaderRoute: typeof CotizacionesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cotizaciones/$id/resumen': {
       id: '/cotizaciones/$id/resumen'
-      path: '/cotizaciones/$id/resumen'
+      path: '/resumen'
       fullPath: '/cotizaciones/$id/resumen'
       preLoaderRoute: typeof CotizacionesIdResumenRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof CotizacionesIdRoute
     }
     '/cotizaciones/$id/editar': {
       id: '/cotizaciones/$id/editar'
-      path: '/cotizaciones/$id/editar'
+      path: '/editar'
       fullPath: '/cotizaciones/$id/editar'
       preLoaderRoute: typeof CotizacionesIdEditarRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof CotizacionesIdRoute
     }
     '/cotizaciones/$id/desglose': {
       id: '/cotizaciones/$id/desglose'
-      path: '/cotizaciones/$id/desglose'
+      path: '/desglose'
       fullPath: '/cotizaciones/$id/desglose'
       preLoaderRoute: typeof CotizacionesIdDesgloseRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof CotizacionesIdRoute
     }
   }
 }
+
+interface CotizacionesIdRouteChildren {
+  CotizacionesIdDesgloseRoute: typeof CotizacionesIdDesgloseRoute
+  CotizacionesIdEditarRoute: typeof CotizacionesIdEditarRoute
+  CotizacionesIdResumenRoute: typeof CotizacionesIdResumenRoute
+}
+
+const CotizacionesIdRouteChildren: CotizacionesIdRouteChildren = {
+  CotizacionesIdDesgloseRoute: CotizacionesIdDesgloseRoute,
+  CotizacionesIdEditarRoute: CotizacionesIdEditarRoute,
+  CotizacionesIdResumenRoute: CotizacionesIdResumenRoute,
+}
+
+const CotizacionesIdRouteWithChildren = CotizacionesIdRoute._addFileChildren(
+  CotizacionesIdRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CatalogoRoute: CatalogoRoute,
   ProveedoresRoute: ProveedoresRoute,
+  CotizacionesIdRoute: CotizacionesIdRouteWithChildren,
   CotizacionesNuevaRoute: CotizacionesNuevaRoute,
   ProyectosObraIdRoute: ProyectosObraIdRoute,
   ProyectosNuevoRoute: ProyectosNuevoRoute,
-  CotizacionesIdDesgloseRoute: CotizacionesIdDesgloseRoute,
-  CotizacionesIdEditarRoute: CotizacionesIdEditarRoute,
-  CotizacionesIdResumenRoute: CotizacionesIdResumenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

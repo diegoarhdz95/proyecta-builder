@@ -11,7 +11,6 @@ import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { ExpedienteTab } from "@/components/ExpedienteTab";
-import { CronogramaTab } from "@/components/CronogramaTab";
 import {
   DropdownMenu,
   DropdownMenuContent,
