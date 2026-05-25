@@ -9,8 +9,8 @@ import {
   Calendar, PARTIDA_ORDER, colorFor, toISO,
   type GanttSettings,
 } from "@/lib/gantt-engine";
-import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
+import autoTable, { type RowInput } from "jspdf-autotable";
 
 export type ActividadView = {
   id: string;
@@ -244,29 +244,19 @@ export function GanttView({
   }
 
   async function exportarPDF() {
-    if (!innerRef.current || actividades.length === 0) return;
+    if (actividades.length === 0) return;
     setExporting(true);
     try {
-      const node = innerRef.current;
-      const canvas = await html2canvas(node, {
-        backgroundColor: "#ffffff",
-        scale: 2,
-        width: node.scrollWidth,
-        height: node.scrollHeight,
-        windowWidth: node.scrollWidth,
-        windowHeight: node.scrollHeight,
-      });
-      // Landscape Letter: 792 x 612 pt
       const pdf = new jsPDF({ unit: "pt", format: "letter", orientation: "landscape" });
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
-      const margin = 28;
+      const margin = 36;
 
-      // Header
+      // Encabezado
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(13);
+      pdf.setFontSize(14);
       pdf.setTextColor(15, 23, 66);
-      pdf.text(projectName || "Cronograma", margin, margin + 4);
+      pdf.text(projectName || "Cronograma", margin, margin);
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
       pdf.setTextColor(110, 116, 130);
@@ -274,28 +264,81 @@ export function GanttView({
         folio ? `Folio: ${folio}` : null,
         `Generado: ${new Date().toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}`,
       ].filter(Boolean).join("   ·   ");
-      pdf.text(meta, margin, margin + 20);
+      pdf.text(meta, margin, margin + 16);
       pdf.setDrawColor(220, 224, 232);
-      pdf.line(margin, margin + 28, pageW - margin, margin + 28);
+      pdf.line(margin, margin + 24, pageW - margin, margin + 24);
 
-      // Imagen del Gantt escalada para caber
-      const headerH = margin + 36;
-      const footerH = 24;
-      const availW = pageW - margin * 2;
-      const availH = pageH - headerH - footerH - margin;
-      const imgRatio = canvas.width / canvas.height;
-      let imgW = availW;
-      let imgH = imgW / imgRatio;
-      if (imgH > availH) { imgH = availH; imgW = imgH * imgRatio; }
-      const imgX = margin + (availW - imgW) / 2;
-      const imgY = headerH;
-      pdf.addImage(canvas.toDataURL("image/png"), "PNG", imgX, imgY, imgW, imgH);
+      // Construir filas agrupadas por partida
+      const NAVY: [number, number, number] = [15, 23, 66];
+      const body: RowInput[] = [];
+      for (const g of grupos) {
+        if (g.items.length === 0) continue;
+        body.push([
+          {
+            content: `${g.clave} · ${g.nombre}`.toUpperCase(),
+            colSpan: 5,
+            styles: {
+              fillColor: NAVY,
+              textColor: 255,
+              fontStyle: "bold",
+              fontSize: 9,
+              halign: "left",
+            },
+          },
+        ]);
+        for (const a of g.items) {
+          body.push([
+            g.clave,
+            a.nombre_actividad,
+            fmtFecha(a.fecha_inicio),
+            fmtFecha(a.fecha_fin),
+            { content: String(Number(a.duracion_dias).toFixed(1)), styles: { halign: "right" } },
+          ]);
+        }
+      }
 
-      // Pie
-      pdf.setFont("helvetica", "italic");
-      pdf.setFontSize(9);
-      pdf.setTextColor(110, 116, 130);
-      pdf.text("Grupo Proyecta", pageW / 2, pageH - margin / 2, { align: "center" });
+      autoTable(pdf, {
+        startY: margin + 32,
+        head: [["Partida", "Actividad", "Inicio", "Fin", "Días"]],
+        body,
+        styles: { font: "helvetica", fontSize: 9, cellPadding: 3, textColor: [40, 40, 40] },
+        headStyles: { fillColor: [240, 242, 247], textColor: NAVY, fontStyle: "bold", fontSize: 9 },
+        columnStyles: {
+          0: { cellWidth: 60 },
+          1: { cellWidth: "auto" },
+          2: { cellWidth: 70, halign: "center" },
+          3: { cellWidth: 70, halign: "center" },
+          4: { cellWidth: 50, halign: "right" },
+        },
+        margin: { left: margin, right: margin, bottom: margin + 24 },
+        theme: "grid",
+        rowPageBreak: "avoid",
+      });
+
+      // Resumen total
+      // @ts-expect-error lastAutoTable from plugin
+      const finalY = pdf.lastAutoTable.finalY + 14;
+      if (totals) {
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(10);
+        pdf.setTextColor(...NAVY);
+        pdf.text(
+          `Duración total del proyecto: ${totals.businessDays} días hábiles (${totals.weeks} semanas aproximadamente)`,
+          margin,
+          finalY,
+        );
+      }
+
+      // Pie de página en todas las páginas
+      const pages = pdf.getNumberOfPages();
+      for (let i = 1; i <= pages; i++) {
+        pdf.setPage(i);
+        pdf.setFont("helvetica", "italic");
+        pdf.setFontSize(9);
+        pdf.setTextColor(110, 116, 130);
+        pdf.text("Grupo Proyecta", pageW / 2, pageH - margin / 2, { align: "center" });
+        pdf.text(`${i} / ${pages}`, pageW - margin, pageH - margin / 2, { align: "right" });
+      }
 
       const safeFolio = (folio || "Cronograma").replace(/[^a-zA-Z0-9-_]/g, "-");
       pdf.save(`${safeFolio}-Cronograma.pdf`);
