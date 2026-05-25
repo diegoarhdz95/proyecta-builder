@@ -368,8 +368,8 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
           actividades={editorActs}
           settings={settings}
           onChange={setEditorActs}
-          onSave={guardarEditor}
-          saving={saving}
+          projectName={cotizacion.nombre_proyecto}
+          folio={cotizacion.folio}
         />
       )}
 
