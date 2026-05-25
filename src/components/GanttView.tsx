@@ -366,12 +366,12 @@ ${styleTags}
           <Button
             size="sm"
             className="h-8 px-2 text-xs ml-2"
-            onClick={exportarPDF}
-            disabled={exporting || actividades.length === 0}
-            title="Exportar PDF"
+            onClick={imprimirGantt}
+            disabled={actividades.length === 0}
+            title="Imprimir Gantt"
           >
             <Printer className="h-3.5 w-3.5 mr-1" />
-            {exporting ? "…" : "Exportar PDF"}
+            Imprimir Gantt
           </Button>
         </div>
       </div>
