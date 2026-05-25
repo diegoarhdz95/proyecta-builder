@@ -67,7 +67,6 @@ export function GanttView({
   const wrapRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [wrapWidth, setWrapWidth] = useState(1200);
-  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!wrapRef.current) return;
