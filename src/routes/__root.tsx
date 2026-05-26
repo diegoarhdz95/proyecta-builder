@@ -73,14 +73,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "PROYECTA STUDIO" },
+      { name: "description", content: "Cotización y presupuestación profesional para arquitectura y construcción. Cronogramas, desglose financiero y PDF en minutos." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "PROYECTA STUDIO" },
+      { property: "og:description", content: "Cotización y presupuestación profesional para arquitectura y construcción. Cronogramas, desglose financiero y PDF en minutos." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "PROYECTA STUDIO" },
+      { name: "twitter:description", content: "Cotización y presupuestación profesional para arquitectura y construcción. Cronogramas, desglose financiero y PDF en minutos." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/fdeaab41-fdf1-45ba-bbea-4f1c3b98d442/id-preview-a2a9790d--9ba9a6cb-d952-4502-9a01-9b943074f4af.lovable.app-1779758544415.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/fdeaab41-fdf1-45ba-bbea-4f1c3b98d442/id-preview-a2a9790d--9ba9a6cb-d952-4502-9a01-9b943074f4af.lovable.app-1779758544415.png" },
     ],
     links: [
       {
