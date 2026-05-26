@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { ESTADOS, estadoMeta } from "@/lib/estado-cotizacion";
 
 const CHART_COLORS = {
   materiales: "#2563eb",
@@ -41,8 +42,6 @@ export const Route = createFileRoute("/proyectos/$obraId")({
   head: () => ({ meta: [{ title: "Proyecto · Grupo Proyecta" }] }),
   component: ProyectoPage,
 });
-
-import { ESTADOS, estadoMeta } from "@/lib/estado-cotizacion";
 
 function currency(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(Number(n) || 0);
