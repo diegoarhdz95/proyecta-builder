@@ -42,19 +42,30 @@ export function GanttSettingsDialog({
 
   async function guardar() {
     setSaving(true);
-    const { error } = await supabase
+    const payload = {
+      trabaja_sabado: s.trabaja_sabado,
+      sabado_medio_dia: s.sabado_medio_dia,
+      trabaja_domingo: s.trabaja_domingo,
+      horario_nocturno: s.horario_nocturno,
+      factor_holgura: s.factor_holgura,
+      dias_arranque: s.dias_arranque,
+      festivos_personalizados: s.festivos_personalizados,
+      updated_at: new Date().toISOString(),
+    };
+    // UPDATE primero (única fila por despacho)
+    const { data: updated, error: upErr } = await supabase
       .from("gantt_settings")
-      .upsert({
-        despacho_id: s.despacho_id,
-        trabaja_sabado: s.trabaja_sabado,
-        sabado_medio_dia: s.sabado_medio_dia,
-        trabaja_domingo: s.trabaja_domingo,
-        horario_nocturno: s.horario_nocturno,
-        factor_holgura: s.factor_holgura,
-        dias_arranque: s.dias_arranque,
-        festivos_personalizados: s.festivos_personalizados,
-        updated_at: new Date().toISOString(),
-      });
+      .update(payload)
+      .eq("despacho_id", DESPACHO_ID)
+      .select();
+    let error = upErr;
+    if (!error && (!updated || updated.length === 0)) {
+      // Si no existía fila, crearla
+      const { error: insErr } = await supabase
+        .from("gantt_settings")
+        .insert({ despacho_id: DESPACHO_ID, ...payload });
+      error = insErr;
+    }
     setSaving(false);
     if (error) return toast.error(error.message);
     onOpenChange(false);
