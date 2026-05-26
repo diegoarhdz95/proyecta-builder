@@ -45,10 +45,10 @@ function CotizacionDashboard() {
     queryKey: ["cotizacion_pagos", id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("pagos_cliente").select("monto, fecha, concepto").eq("proyecto_id", id)
-        .order("fecha", { ascending: false });
+        .from("pagos_cliente").select("monto, fecha_pago, concepto").eq("proyecto_id", id)
+        .order("fecha_pago", { ascending: false });
       if (error) throw error;
-      return data as { monto: number; fecha: string; concepto: string | null }[];
+      return data as { monto: number; fecha_pago: string; concepto: string | null }[];
     },
   });
 
@@ -136,7 +136,7 @@ function CotizacionDashboard() {
                   )}
                   {pagos?.map((pg, i) => (
                     <tr key={i} className="border-t">
-                      <td className="px-4 py-2.5 tabular-nums">{pg.fecha}</td>
+                      <td className="px-4 py-2.5 tabular-nums">{pg.fecha_pago}</td>
                       <td className="px-4 py-2.5">{pg.concepto ?? "—"}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{currency(pg.monto)}</td>
                     </tr>
