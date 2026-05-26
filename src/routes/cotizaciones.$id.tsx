@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { supabase, IVA_RATE, type Proyecto, type Partida, type ProyectoConcepto } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -225,8 +225,8 @@ function CotizacionDashboard() {
                               counter += 1;
                               const spec = it.concepto?.especificaciones?.trim();
                               return (
-                                <>
-                                  <tr key={it.id} className="border-t">
+                                <Fragment key={it.id}>
+                                  <tr className="border-t">
                                     <td className="py-1.5 px-2 text-center text-muted-foreground">{counter}</td>
                                     <td className="py-1.5 px-2 font-medium">{it.descripcion}</td>
                                     <td className="py-1.5 px-2 text-muted-foreground">{it.unidad}</td>
@@ -235,12 +235,12 @@ function CotizacionDashboard() {
                                     <td className="py-1.5 px-2 text-right tabular-nums">{currency(Number(it.subtotal))}</td>
                                   </tr>
                                   {spec && (
-                                    <tr key={it.id + "-spec"}>
+                                    <tr>
                                       <td></td>
                                       <td colSpan={5} className="pb-1.5 px-2 text-xs italic text-muted-foreground">{spec}</td>
                                     </tr>
                                   )}
-                                </>
+                                </Fragment>
                               );
                             })}
                             <tr className="border-t bg-muted/30">
