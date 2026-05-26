@@ -206,7 +206,7 @@ function ProyectoPage() {
                           <DropdownMenuContent align="start">
                             {ESTADOS.map((e) => (
                               <DropdownMenuItem key={e.value} onClick={() => cambiarEstado(p.id, e.value)}>
-                                <span className={`mr-2 inline-block h-2 w-2 rounded-full ${e.cls.split(" ")[0]}`} />
+                                <span className={`mr-2 inline-block h-2 w-2 rounded-full ${e.dot}`} />
                                 {e.label}
                               </DropdownMenuItem>
                             ))}
