@@ -8,6 +8,7 @@ import { ArrowLeft, Pencil, BarChart3, Wallet, Calendar, FileText, Download } fr
 import { CotizacionGanttTab } from "@/components/CotizacionGanttTab";
 import { generateCotizacionPDF } from "@/lib/generate-pdf";
 import { toast } from "sonner";
+import { EstadoBadge } from "@/lib/estado-cotizacion";
 
 export const Route = createFileRoute("/cotizaciones/$id")({
   head: () => ({ meta: [{ title: "Cotización · Grupo Proyecta" }] }),
@@ -151,7 +152,7 @@ function CotizacionDashboard() {
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5 text-sm">
             <Stat label="Total" value={currency(p?.total_con_iva ?? 0)} highlight />
-            <Stat label="Estado" value={p?.estado ?? "—"} />
+            <Stat label="Estado" estadoValue={p?.estado} />
             <Stat label="Conceptos" value={String(conceptosCount ?? 0)} />
             <Stat label="Subtotal" value={currency(p?.subtotal ?? 0)} />
             <Stat label="IVA" value={currency((p?.subtotal ?? 0) * IVA_RATE)} />
@@ -190,7 +191,7 @@ function CotizacionDashboard() {
                   </div>
                   <div>
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Estado</p>
-                    <p className="font-medium capitalize">{p?.estado ?? "—"}</p>
+                    <div className="mt-0.5"><EstadoBadge value={p?.estado} /></div>
                   </div>
                 </div>
 
@@ -324,11 +325,25 @@ function CotizacionDashboard() {
   );
 }
 
-function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function Stat({
+  label,
+  value,
+  highlight,
+  estadoValue,
+}: {
+  label: string;
+  value?: string;
+  highlight?: boolean;
+  estadoValue?: string | null;
+}) {
   return (
     <div className={`rounded-md border px-3 py-2 ${highlight ? "bg-primary/10 border-primary/30" : "bg-card"}`}>
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold truncate">{value}</p>
+      {estadoValue !== undefined ? (
+        <div className="mt-0.5"><EstadoBadge value={estadoValue} /></div>
+      ) : (
+        <p className="text-sm font-semibold truncate">{value}</p>
+      )}
     </div>
   );
 }
