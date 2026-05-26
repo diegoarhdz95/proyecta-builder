@@ -42,19 +42,7 @@ export const Route = createFileRoute("/proyectos/$obraId")({
   component: ProyectoPage,
 });
 
-const ESTADOS: { value: string; label: string; cls: string }[] = [
-  { value: "borrador", label: "Borrador", cls: "bg-muted text-muted-foreground hover:bg-muted/80" },
-  { value: "en_revision", label: "En revisión", cls: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200" },
-  { value: "enviada", label: "Enviada", cls: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
-  { value: "aceptada", label: "Aceptada", cls: "bg-green-100 text-green-700 hover:bg-green-200" },
-  { value: "rechazada", label: "Rechazada", cls: "bg-red-100 text-red-700 hover:bg-red-200" },
-];
-
-function estadoMeta(value: string) {
-  // map legacy "aprobada" -> "aceptada"
-  const v = value === "aprobada" ? "aceptada" : value;
-  return ESTADOS.find((e) => e.value === v) ?? ESTADOS[0];
-}
+import { ESTADOS, estadoMeta } from "@/lib/estado-cotizacion";
 
 function currency(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(Number(n) || 0);
