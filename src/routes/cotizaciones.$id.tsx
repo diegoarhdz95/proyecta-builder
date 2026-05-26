@@ -1,11 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { supabase, IVA_RATE, type Proyecto } from "@/lib/supabase";
+import { supabase, IVA_RATE, type Proyecto, type Partida, type ProyectoConcepto } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ArrowLeft, Pencil, BarChart3, Wallet, Calendar } from "lucide-react";
+import { ArrowLeft, Pencil, BarChart3, Wallet, Calendar, FileText, Download } from "lucide-react";
 import { CotizacionGanttTab } from "@/components/CotizacionGanttTab";
+import { generateCotizacionPDF } from "@/lib/generate-pdf";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/cotizaciones/$id")({
   head: () => ({ meta: [{ title: "Cotización · Grupo Proyecta" }] }),
@@ -19,7 +21,7 @@ function currency(n: number) {
 function CotizacionDashboard() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"desglose" | "pagos" | "gantt">("gantt");
+  const [tab, setTab] = useState<"resumen" | "desglose" | "pagos" | "gantt">("resumen");
 
   const { data: p } = useQuery({
     queryKey: ["cotizacion_dashboard", id],
@@ -60,6 +62,60 @@ function CotizacionDashboard() {
       if (error) throw error;
       return data as Record<string, number> | null;
     },
+  });
+
+  const { data: resumenItems } = useQuery({
+    queryKey: ["cotizacion_resumen_items", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("proyecto_conceptos")
+        .select("*, proyecto_partida:proyecto_partida_id(partida_id), concepto:concepto_id(especificaciones)")
+        .eq("proyecto_id", id);
+      if (error) throw error;
+      return data as (ProyectoConcepto & {
+        proyecto_partida: { partida_id: string } | null;
+        concepto: { especificaciones: string | null } | null;
+      })[];
+    },
+  });
+
+  const { data: partidas } = useQuery({
+    queryKey: ["all_partidas_dashboard"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("partidas").select("*").order("orden");
+      if (error) throw error;
+      return data as Partida[];
+    },
+  });
+
+  async function handleGeneratePDF() {
+    if (!p) return;
+    try {
+      generateCotizacionPDF({
+        proyecto: p,
+        items: (resumenItems ?? []) as never,
+        partidas: partidas ?? [],
+      });
+      toast.success("PDF generado");
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
+
+  const subtotalResumen = (resumenItems ?? []).reduce((s, i) => s + Number(i.subtotal || 0), 0);
+  const ivaResumen = subtotalResumen * IVA_RATE;
+  const totalResumen = subtotalResumen + ivaResumen;
+
+  const groupedResumen = new Map<string, typeof resumenItems>();
+  resumenItems?.forEach((it) => {
+    const pid = it.proyecto_partida?.partida_id ?? "otros";
+    if (!groupedResumen.has(pid)) groupedResumen.set(pid, [] as typeof resumenItems);
+    groupedResumen.get(pid)!.push(it);
+  });
+  const sortedResumen = Array.from(groupedResumen.entries()).sort((a, b) => {
+    const oa = partidas?.find((pt) => pt.id === a[0])?.orden ?? 999;
+    const ob = partidas?.find((pt) => pt.id === b[0])?.orden ?? 999;
+    return oa - ob;
   });
 
   return (
@@ -104,10 +160,119 @@ function CotizacionDashboard() {
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList>
+            <TabsTrigger value="resumen"><FileText className="h-3.5 w-3.5 mr-1" />Resumen</TabsTrigger>
             <TabsTrigger value="desglose"><BarChart3 className="h-3.5 w-3.5 mr-1" />Desglose</TabsTrigger>
             <TabsTrigger value="pagos"><Wallet className="h-3.5 w-3.5 mr-1" />Pagos</TabsTrigger>
             <TabsTrigger value="gantt"><Calendar className="h-3.5 w-3.5 mr-1" />Gantt</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="resumen" className="mt-4">
+            <div className="rounded-lg border bg-card">
+              <div className="flex items-center justify-between border-b px-5 py-3">
+                <h3 className="text-sm font-semibold">Cotización · Vista de solo lectura</h3>
+                <Button onClick={handleGeneratePDF} size="sm">
+                  <Download className="mr-2 h-4 w-4" />Generar PDF
+                </Button>
+              </div>
+              <div className="p-6">
+                <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4 text-sm">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Folio</p>
+                    <p className="font-mono font-medium">{p?.folio}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Cliente</p>
+                    <p className="font-medium truncate">{p?.cliente_nombre}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Fecha</p>
+                    <p className="font-medium">{new Date().toLocaleDateString("es-MX")}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Estado</p>
+                    <p className="font-medium capitalize">{p?.estado ?? "—"}</p>
+                  </div>
+                </div>
+
+                {sortedResumen.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-10">Sin conceptos en la cotización</p>
+                )}
+
+                {(() => {
+                  let counter = 0;
+                  return sortedResumen.map(([pid, group]) => {
+                    const partida = partidas?.find((pt) => pt.id === pid);
+                    const label = partida ? `${partida.clave} · ${partida.nombre}` : "Otros";
+                    const subPartida = (group ?? []).reduce((s, i) => s + Number(i.subtotal || 0), 0);
+                    return (
+                      <div key={pid} className="mb-6">
+                        <h4 className="mb-2 bg-primary/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary rounded">
+                          {label}
+                        </h4>
+                        <table className="w-full text-sm">
+                          <thead className="text-left text-xs text-muted-foreground border-b">
+                            <tr>
+                              <th className="py-1.5 px-2 w-10">No.</th>
+                              <th className="py-1.5 px-2">Descripción</th>
+                              <th className="py-1.5 px-2 w-16">Unidad</th>
+                              <th className="py-1.5 px-2 w-20 text-right">Cant.</th>
+                              <th className="py-1.5 px-2 w-28 text-right">P.U.</th>
+                              <th className="py-1.5 px-2 w-28 text-right">Importe</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {group?.map((it) => {
+                              counter += 1;
+                              const spec = it.concepto?.especificaciones?.trim();
+                              return (
+                                <>
+                                  <tr key={it.id} className="border-t">
+                                    <td className="py-1.5 px-2 text-center text-muted-foreground">{counter}</td>
+                                    <td className="py-1.5 px-2 font-medium">{it.descripcion}</td>
+                                    <td className="py-1.5 px-2 text-muted-foreground">{it.unidad}</td>
+                                    <td className="py-1.5 px-2 text-right tabular-nums">{Number(it.cantidad)}</td>
+                                    <td className="py-1.5 px-2 text-right tabular-nums">{currency(Number(it.precio_unitario_final))}</td>
+                                    <td className="py-1.5 px-2 text-right tabular-nums">{currency(Number(it.subtotal))}</td>
+                                  </tr>
+                                  {spec && (
+                                    <tr key={it.id + "-spec"}>
+                                      <td></td>
+                                      <td colSpan={5} className="pb-1.5 px-2 text-xs italic text-muted-foreground">{spec}</td>
+                                    </tr>
+                                  )}
+                                </>
+                              );
+                            })}
+                            <tr className="border-t bg-muted/30">
+                              <td colSpan={5} className="py-1.5 px-2 text-right text-xs font-semibold">Subtotal partida</td>
+                              <td className="py-1.5 px-2 text-right tabular-nums font-semibold">{currency(subPartida)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  });
+                })()}
+
+                {sortedResumen.length > 0 && (
+                  <div className="ml-auto mt-6 w-72 space-y-1.5 text-sm border-t pt-4">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="tabular-nums">{currency(subtotalResumen)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">IVA (16%)</span>
+                      <span className="tabular-nums">{currency(ivaResumen)}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 text-base font-bold">
+                      <span>Total</span>
+                      <span className="tabular-nums">{currency(totalResumen)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
 
           <TabsContent value="desglose" className="mt-4">
             {!desglose ? (
