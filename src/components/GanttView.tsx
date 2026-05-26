@@ -445,6 +445,20 @@ ${styleTags}
 
             {/* Body */}
             <div style={{ position: "relative", height: bodyH }}>
+              {/* Fondo de columnas no laborables (domingos / festivos) */}
+              <div className="pointer-events-none absolute inset-0" style={{ left: LEFT_W }}>
+                {days.map((d, i) => {
+                  const dow = d.getDay();
+                  const holiday = cal.isHoliday(d);
+                  const isSun = dow === 0;
+                  if (!holiday && !(isSun && !settings.trabaja_domingo)) return null;
+                  const bg = holiday ? "rgba(250,204,21,0.12)" : "#f5f5f5";
+                  return (
+                    <div key={i} className="absolute top-0 bottom-0"
+                      style={{ left: i * cellW, width: cellW, background: bg }} />
+                  );
+                })}
+              </div>
               {rows.map((r, ri) => {
                 const top = ri * rowH;
                 if (r.kind === "group") {
