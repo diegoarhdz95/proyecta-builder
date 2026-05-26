@@ -237,7 +237,11 @@ function CotizacionDashboard() {
                                   {spec && (
                                     <tr>
                                       <td></td>
-                                      <td colSpan={5} className="pb-1.5 px-2 text-xs italic text-muted-foreground">{spec}</td>
+                                      <td className="pb-1.5 px-2 text-xs italic text-muted-foreground">{spec}</td>
+                                      <td></td>
+                                      <td></td>
+                                      <td></td>
+                                      <td></td>
                                     </tr>
                                   )}
                                 </Fragment>
