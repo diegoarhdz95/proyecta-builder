@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Clock, Download, FileText, PieChart, Plus, Trash2 } from "lucide-react";
 import { generateCotizacionPDF } from "@/lib/generate-pdf";
 
-export const Route = createFileRoute("/cotizaciones/$id/editar")({
+export const Route = createFileRoute("/cotizaciones/$id_/editar")({
   head: () => ({ meta: [{ title: "Editor de cotización · Grupo Proyecta" }] }),
   component: Editor,
 });
