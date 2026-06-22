@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Search, Trash2, Phone } from "lucide-react";
 
-export const Route = createFileRoute("/personal")({
+export const Route = createFileRoute("/personal/")({
   head: () => ({ meta: [{ title: "Personal · Grupo Proyecta" }] }),
   component: PersonalPage,
 });
