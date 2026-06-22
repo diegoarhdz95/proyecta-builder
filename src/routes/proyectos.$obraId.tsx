@@ -642,9 +642,21 @@ function PagosTab({ obraId }: { obraId: string }) {
                 <td className="px-4 py-2.5">{p.metodo_pago ?? "—"}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{p.notas ?? "—"}</td>
                 <td className="px-4 py-2.5 text-right">
-                  <Button variant="ghost" size="icon" onClick={() => eliminar(p.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      onClick={() => generarRecibo(p)}
+                      title="Generar recibo PDF"
+                    >
+                      <FileDown className="mr-1 h-3.5 w-3.5" />
+                      Generar recibo
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => eliminar(p.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}
