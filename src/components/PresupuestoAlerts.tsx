@@ -56,8 +56,9 @@ export function PresupuestoAlerts({ obraId }: { obraId: string }) {
         if (g.categoria === "materiales") real.materiales += Number(g.monto || 0);
         else real.otros += Number(g.monto || 0);
       });
-      (pagosPersonal ?? []).forEach((p: { monto: number; personal: { categoria: string } | null }) => {
-        const c = p.personal?.categoria;
+      (pagosPersonal ?? []).forEach((p: { monto: number; personal: unknown }) => {
+        const per = Array.isArray(p.personal) ? p.personal[0] : p.personal;
+        const c = (per as { categoria?: string } | null)?.categoria;
         if (c === "contratista") real.contratistas += Number(p.monto || 0);
         else real.mano_obra += Number(p.monto || 0);
       });
