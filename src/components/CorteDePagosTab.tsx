@@ -53,7 +53,7 @@ export function CorteDePagosTab({ proyectoId }: { proyectoId: string }) {
         .gte("fecha_pago", desde)
         .lte("fecha_pago", hasta);
       if (error) throw error;
-      return data as {
+      return (data ?? []) as unknown as {
         id: string;
         concepto: string;
         monto: number;
