@@ -499,13 +499,14 @@ ${styleTags}
                       <div className="flex cursor-pointer items-center border-b border-r bg-slate-900 text-white hover:bg-slate-800"
                         style={{ position: "sticky", left: 0, zIndex: 20, width: LEFT_W, fontSize: fontBody }}
                         onClick={() => setCollapsed((s) => ({ ...s, [r.clave]: !s[r.clave] }))}>
-                        <div className="flex items-center gap-2 px-3 font-semibold" style={{ width: "55%" }}>
+                        <div className="flex items-center gap-2 px-3 font-semibold" style={{ width: "42%" }}>
                           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                           <span className="truncate">{r.clave} · {r.nombre}</span>
                         </div>
-                        <div className="px-2 tabular-nums text-white/80" style={{ width: "15%" }}>{fmtFecha(toISO(r.start))}</div>
-                        <div className="px-2 tabular-nums text-white/80" style={{ width: "15%" }}>{fmtFecha(toISO(r.end))}</div>
-                        <div className="px-2 text-right tabular-nums" style={{ width: "15%" }}>{cal.businessDaysBetween(r.start, r.end)}</div>
+                        <div className="px-2 tabular-nums text-white/80" style={{ width: "12%" }}>{fmtFecha(toISO(r.start))}</div>
+                        <div className="px-2 tabular-nums text-white/80" style={{ width: "12%" }}>{fmtFecha(toISO(r.end))}</div>
+                        <div className="px-2 text-right tabular-nums" style={{ width: "10%" }}>{cal.businessDaysBetween(r.start, r.end)}</div>
+                        <div className="px-2 text-right tabular-nums" style={{ width: "24%" }}>{fmtCosto(costoDeGrupo(r.clave))}</div>
                       </div>
                       <div className="relative border-b" style={{ width: totalW }}>
                         <div className="absolute rounded-sm"
