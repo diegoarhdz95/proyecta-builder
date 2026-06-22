@@ -14,6 +14,7 @@ import { Route as PersonalRouteImport } from './routes/personal'
 import { Route as MaterialesRouteImport } from './routes/materiales'
 import { Route as CatalogoRouteImport } from './routes/catalogo'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ReciboTokenRouteImport } from './routes/recibo.$token'
 import { Route as ProyectosNuevoRouteImport } from './routes/proyectos.nuevo'
 import { Route as ProyectosObraIdRouteImport } from './routes/proyectos.$obraId'
 import { Route as PersonalIdRouteImport } from './routes/personal.$id'
@@ -46,6 +47,11 @@ const CatalogoRoute = CatalogoRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReciboTokenRoute = ReciboTokenRouteImport.update({
+  id: '/recibo/$token',
+  path: '/recibo/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProyectosNuevoRoute = ProyectosNuevoRouteImport.update({
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/personal/$id': typeof PersonalIdRoute
   '/proyectos/$obraId': typeof ProyectosObraIdRoute
   '/proyectos/nuevo': typeof ProyectosNuevoRoute
+  '/recibo/$token': typeof ReciboTokenRoute
   '/cotizaciones/$id/desglose': typeof CotizacionesIdDesgloseRoute
   '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
   '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/personal/$id': typeof PersonalIdRoute
   '/proyectos/$obraId': typeof ProyectosObraIdRoute
   '/proyectos/nuevo': typeof ProyectosNuevoRoute
+  '/recibo/$token': typeof ReciboTokenRoute
   '/cotizaciones/$id/desglose': typeof CotizacionesIdDesgloseRoute
   '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
   '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/personal/$id': typeof PersonalIdRoute
   '/proyectos/$obraId': typeof ProyectosObraIdRoute
   '/proyectos/nuevo': typeof ProyectosNuevoRoute
+  '/recibo/$token': typeof ReciboTokenRoute
   '/cotizaciones/$id/desglose': typeof CotizacionesIdDesgloseRoute
   '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
   '/cotizaciones/$id_/editar': typeof CotizacionesIdEditarRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/personal/$id'
     | '/proyectos/$obraId'
     | '/proyectos/nuevo'
+    | '/recibo/$token'
     | '/cotizaciones/$id/desglose'
     | '/cotizaciones/$id/resumen'
     | '/cotizaciones/$id/editar'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/personal/$id'
     | '/proyectos/$obraId'
     | '/proyectos/nuevo'
+    | '/recibo/$token'
     | '/cotizaciones/$id/desglose'
     | '/cotizaciones/$id/resumen'
     | '/cotizaciones/$id/editar'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/personal/$id'
     | '/proyectos/$obraId'
     | '/proyectos/nuevo'
+    | '/recibo/$token'
     | '/cotizaciones/$id/desglose'
     | '/cotizaciones/$id/resumen'
     | '/cotizaciones/$id_/editar'
@@ -193,6 +205,7 @@ export interface RootRouteChildren {
   CotizacionesNuevaRoute: typeof CotizacionesNuevaRoute
   ProyectosObraIdRoute: typeof ProyectosObraIdRoute
   ProyectosNuevoRoute: typeof ProyectosNuevoRoute
+  ReciboTokenRoute: typeof ReciboTokenRoute
   CotizacionesIdEditarRoute: typeof CotizacionesIdEditarRoute
 }
 
@@ -231,6 +244,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recibo/$token': {
+      id: '/recibo/$token'
+      path: '/recibo/$token'
+      fullPath: '/recibo/$token'
+      preLoaderRoute: typeof ReciboTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/proyectos/nuevo': {
@@ -328,6 +348,7 @@ const rootRouteChildren: RootRouteChildren = {
   CotizacionesNuevaRoute: CotizacionesNuevaRoute,
   ProyectosObraIdRoute: ProyectosObraIdRoute,
   ProyectosNuevoRoute: ProyectosNuevoRoute,
+  ReciboTokenRoute: ReciboTokenRoute,
   CotizacionesIdEditarRoute: CotizacionesIdEditarRoute,
 }
 export const routeTree = rootRouteImport
