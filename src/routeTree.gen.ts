@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ProveedoresRouteImport } from './routes/proveedores'
+import { Route as PersonalRouteImport } from './routes/personal'
 import { Route as MaterialesRouteImport } from './routes/materiales'
 import { Route as CatalogoRouteImport } from './routes/catalogo'
 import { Route as IndexRouteImport } from './routes/index'
@@ -24,6 +25,11 @@ import { Route as CotizacionesIdDesgloseRouteImport } from './routes/cotizacione
 const ProveedoresRoute = ProveedoresRouteImport.update({
   id: '/proveedores',
   path: '/proveedores',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PersonalRoute = PersonalRouteImport.update({
+  id: '/personal',
+  path: '/personal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MaterialesRoute = MaterialesRouteImport.update({
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/materiales': typeof MaterialesRoute
+  '/personal': typeof PersonalRoute
   '/proveedores': typeof ProveedoresRoute
   '/cotizaciones/$id': typeof CotizacionesIdRouteWithChildren
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/materiales': typeof MaterialesRoute
+  '/personal': typeof PersonalRoute
   '/proveedores': typeof ProveedoresRoute
   '/cotizaciones/$id': typeof CotizacionesIdRouteWithChildren
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/materiales': typeof MaterialesRoute
+  '/personal': typeof PersonalRoute
   '/proveedores': typeof ProveedoresRoute
   '/cotizaciones/$id': typeof CotizacionesIdRouteWithChildren
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/materiales'
+    | '/personal'
     | '/proveedores'
     | '/cotizaciones/$id'
     | '/cotizaciones/nueva'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/materiales'
+    | '/personal'
     | '/proveedores'
     | '/cotizaciones/$id'
     | '/cotizaciones/nueva'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/materiales'
+    | '/personal'
     | '/proveedores'
     | '/cotizaciones/$id'
     | '/cotizaciones/nueva'
@@ -163,6 +175,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CatalogoRoute: typeof CatalogoRoute
   MaterialesRoute: typeof MaterialesRoute
+  PersonalRoute: typeof PersonalRoute
   ProveedoresRoute: typeof ProveedoresRoute
   CotizacionesIdRoute: typeof CotizacionesIdRouteWithChildren
   CotizacionesNuevaRoute: typeof CotizacionesNuevaRoute
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       path: '/proveedores'
       fullPath: '/proveedores'
       preLoaderRoute: typeof ProveedoresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/personal': {
+      id: '/personal'
+      path: '/personal'
+      fullPath: '/personal'
+      preLoaderRoute: typeof PersonalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/materiales': {
@@ -271,6 +291,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CatalogoRoute: CatalogoRoute,
   MaterialesRoute: MaterialesRoute,
+  PersonalRoute: PersonalRoute,
   ProveedoresRoute: ProveedoresRoute,
   CotizacionesIdRoute: CotizacionesIdRouteWithChildren,
   CotizacionesNuevaRoute: CotizacionesNuevaRoute,
