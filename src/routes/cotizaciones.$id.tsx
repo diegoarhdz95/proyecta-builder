@@ -4,8 +4,9 @@ import { useState, Fragment } from "react";
 import { supabase, IVA_RATE, type Proyecto, type Partida, type ProyectoConcepto } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ArrowLeft, Pencil, BarChart3, Wallet, Calendar, FileText, Download } from "lucide-react";
+import { ArrowLeft, Pencil, BarChart3, Wallet, Calendar, FileText, Download, Scissors } from "lucide-react";
 import { CotizacionGanttTab } from "@/components/CotizacionGanttTab";
+import { CorteDePagosTab } from "@/components/CorteDePagosTab";
 import { generateCotizacionPDF } from "@/lib/generate-pdf";
 import { toast } from "sonner";
 import { EstadoBadge } from "@/lib/estado-cotizacion";
@@ -22,7 +23,7 @@ function currency(n: number) {
 function CotizacionDashboard() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"resumen" | "desglose" | "pagos" | "gantt">("resumen");
+  const [tab, setTab] = useState<"resumen" | "desglose" | "pagos" | "corte" | "gantt">("resumen");
 
   const { data: p } = useQuery({
     queryKey: ["cotizacion_dashboard", id],
@@ -164,6 +165,7 @@ function CotizacionDashboard() {
             <TabsTrigger value="resumen"><FileText className="h-3.5 w-3.5 mr-1" />Resumen</TabsTrigger>
             <TabsTrigger value="desglose"><BarChart3 className="h-3.5 w-3.5 mr-1" />Desglose</TabsTrigger>
             <TabsTrigger value="pagos"><Wallet className="h-3.5 w-3.5 mr-1" />Pagos</TabsTrigger>
+            <TabsTrigger value="corte"><Scissors className="h-3.5 w-3.5 mr-1" />Corte de Pagos</TabsTrigger>
             <TabsTrigger value="gantt"><Calendar className="h-3.5 w-3.5 mr-1" />Gantt</TabsTrigger>
           </TabsList>
 
@@ -318,6 +320,10 @@ function CotizacionDashboard() {
 
           <TabsContent value="gantt" className="mt-4">
             {p && <CotizacionGanttTab cotizacion={{ id: p.id, folio: p.folio, nombre_proyecto: p.nombre_proyecto }} />}
+          </TabsContent>
+
+          <TabsContent value="corte" className="mt-4">
+            <CorteDePagosTab proyectoId={id} />
           </TabsContent>
         </Tabs>
       </main>

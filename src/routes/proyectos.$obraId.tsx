@@ -11,6 +11,7 @@ import { ArrowLeft, Plus, Trash2, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { ExpedienteTab } from "@/components/ExpedienteTab";
+import { GastosTab } from "@/components/GastosTab";
 import { downloadOrShareReciboPDF } from "@/lib/generate-recibo-pdf";
 import { downloadOrShareReciboPersonalPDF } from "@/lib/generate-recibo-personal-pdf";
 import type { Personal, PersonalProyecto, PagoPersonal } from "@/lib/supabase";
@@ -55,7 +56,7 @@ function ProyectoPage() {
   const { obraId } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "pagos" | "personal" | "expediente">("cotizaciones");
+  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "pagos" | "personal" | "gastos" | "expediente">("cotizaciones");
 
   const { data: obra } = useQuery({
     queryKey: ["obra", obraId],
@@ -168,6 +169,7 @@ function ProyectoPage() {
             <TabsTrigger value="desglose">Desglose financiero</TabsTrigger>
             <TabsTrigger value="pagos">Pagos</TabsTrigger>
             <TabsTrigger value="personal">Personal</TabsTrigger>
+            <TabsTrigger value="gastos">Gastos</TabsTrigger>
             <TabsTrigger value="expediente">Expediente</TabsTrigger>
           </TabsList>
 
@@ -263,6 +265,10 @@ function ProyectoPage() {
 
           <TabsContent value="personal" className="mt-6">
             <PersonalProyectoTab obraId={obraId} />
+          </TabsContent>
+
+          <TabsContent value="gastos" className="mt-6">
+            <GastosTab obraId={obraId} />
           </TabsContent>
 
           <TabsContent value="expediente" className="mt-6">
