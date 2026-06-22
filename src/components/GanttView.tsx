@@ -430,10 +430,11 @@ ${styleTags}
             <div className="flex bg-muted/60 backdrop-blur" style={{ position: "sticky", top: 0, zIndex: 30, height: HEADER_H }}>
               <div className="flex items-center border-b border-r bg-muted/80"
                 style={{ position: "sticky", left: 0, zIndex: 40, width: LEFT_W, fontSize: fontHeader }}>
-                <div className="px-3 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "55%" }}>Actividad</div>
-                <div className="px-2 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "15%" }}>Inicio</div>
-                <div className="px-2 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "15%" }}>Fin</div>
-                <div className="px-2 text-right font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "15%" }}>Días</div>
+                <div className="px-3 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "42%" }}>Actividad</div>
+                <div className="px-2 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "12%" }}>Inicio</div>
+                <div className="px-2 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "12%" }}>Fin</div>
+                <div className="px-2 text-right font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "10%" }}>Días</div>
+                <div className="px-2 text-right font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "24%" }}>Costo Total</div>
               </div>
               <div className="relative border-b" style={{ width: totalW, height: HEADER_H }}>
                 <div className="absolute left-0 right-0 top-0 border-b" style={{ height: HEADER_H / 2 }}>
