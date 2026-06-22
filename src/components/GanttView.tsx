@@ -31,7 +31,7 @@ type GView = "day" | "week" | "month";
 const BASE_CELL: Record<GView, number> = { day: 36, week: 16, month: 6 };
 const ROW_H = 30;
 const HEADER_H = 46;
-const LEFT_W = 380;
+const LEFT_W = 500;
 const clamp = (a: number, v: number, b: number) => Math.max(a, Math.min(b, v));
 
 function fmtFecha(iso: string) {
@@ -42,6 +42,16 @@ function truncate(s: string, n = 30) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
+const mxn = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+  maximumFractionDigits: 0,
+});
+function fmtCosto(v: number | undefined | null): string {
+  if (v == null || !Number.isFinite(Number(v)) || Number(v) <= 0) return "Sin costo";
+  return mxn.format(Number(v));
+}
+
 export function GanttView({
   actividades,
   settings,
@@ -50,6 +60,7 @@ export function GanttView({
   toolbarExtra,
   projectName,
   folio,
+  costos,
 }: {
   actividades: ActividadView[];
   settings: GanttSettings;
@@ -58,6 +69,8 @@ export function GanttView({
   toolbarExtra?: React.ReactNode;
   projectName?: string;
   folio?: string;
+  /** Costo por concepto_id (subtotal de la cotización) */
+  costos?: Record<string, number>;
 }) {
   const cal = useMemo(() => new Calendar(settings), [settings]);
   const [view, setView] = useState<GView>("week");
@@ -335,8 +348,22 @@ ${styleTags}
     const s = new Date(Math.min(...starts));
     const e = new Date(Math.max(...ends));
     const bd = cal.businessDaysBetween(s, e);
-    return { start: s, end: e, businessDays: bd, weeks: Math.max(1, Math.ceil(bd / 5)) };
-  }, [actividades, cal]);
+    const costoTotal = actividades.reduce(
+      (sum, a) => sum + (a.concepto_id ? Number(costos?.[a.concepto_id] ?? 0) : 0),
+      0,
+    );
+    return { start: s, end: e, businessDays: bd, weeks: Math.max(1, Math.ceil(bd / 5)), costoTotal };
+  }, [actividades, cal, costos]);
+
+  function costoDeActividad(a: ActividadView): number {
+    if (!a.concepto_id) return 0;
+    return Number(costos?.[a.concepto_id] ?? 0);
+  }
+  function costoDeGrupo(clave: string): number {
+    const g = grupos.find((x) => x.clave === clave);
+    if (!g) return 0;
+    return g.items.reduce((s, a) => s + costoDeActividad(a), 0);
+  }
 
   const bodyH = rows.length * rowH;
 
@@ -403,10 +430,11 @@ ${styleTags}
             <div className="flex bg-muted/60 backdrop-blur" style={{ position: "sticky", top: 0, zIndex: 30, height: HEADER_H }}>
               <div className="flex items-center border-b border-r bg-muted/80"
                 style={{ position: "sticky", left: 0, zIndex: 40, width: LEFT_W, fontSize: fontHeader }}>
-                <div className="px-3 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "55%" }}>Actividad</div>
-                <div className="px-2 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "15%" }}>Inicio</div>
-                <div className="px-2 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "15%" }}>Fin</div>
-                <div className="px-2 text-right font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "15%" }}>Días</div>
+                <div className="px-3 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "42%" }}>Actividad</div>
+                <div className="px-2 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "12%" }}>Inicio</div>
+                <div className="px-2 font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "12%" }}>Fin</div>
+                <div className="px-2 text-right font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "10%" }}>Días</div>
+                <div className="px-2 text-right font-semibold uppercase tracking-wide text-muted-foreground" style={{ width: "24%" }}>Costo Total</div>
               </div>
               <div className="relative border-b" style={{ width: totalW, height: HEADER_H }}>
                 <div className="absolute left-0 right-0 top-0 border-b" style={{ height: HEADER_H / 2 }}>
@@ -471,13 +499,14 @@ ${styleTags}
                       <div className="flex cursor-pointer items-center border-b border-r bg-slate-900 text-white hover:bg-slate-800"
                         style={{ position: "sticky", left: 0, zIndex: 20, width: LEFT_W, fontSize: fontBody }}
                         onClick={() => setCollapsed((s) => ({ ...s, [r.clave]: !s[r.clave] }))}>
-                        <div className="flex items-center gap-2 px-3 font-semibold" style={{ width: "55%" }}>
+                        <div className="flex items-center gap-2 px-3 font-semibold" style={{ width: "42%" }}>
                           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                           <span className="truncate">{r.clave} · {r.nombre}</span>
                         </div>
-                        <div className="px-2 tabular-nums text-white/80" style={{ width: "15%" }}>{fmtFecha(toISO(r.start))}</div>
-                        <div className="px-2 tabular-nums text-white/80" style={{ width: "15%" }}>{fmtFecha(toISO(r.end))}</div>
-                        <div className="px-2 text-right tabular-nums" style={{ width: "15%" }}>{cal.businessDaysBetween(r.start, r.end)}</div>
+                        <div className="px-2 tabular-nums text-white/80" style={{ width: "12%" }}>{fmtFecha(toISO(r.start))}</div>
+                        <div className="px-2 tabular-nums text-white/80" style={{ width: "12%" }}>{fmtFecha(toISO(r.end))}</div>
+                        <div className="px-2 text-right tabular-nums" style={{ width: "10%" }}>{cal.businessDaysBetween(r.start, r.end)}</div>
+                        <div className="px-2 text-right tabular-nums" style={{ width: "24%" }}>{fmtCosto(costoDeGrupo(r.clave))}</div>
                       </div>
                       <div className="relative border-b" style={{ width: totalW }}>
                         <div className="absolute rounded-sm"
@@ -495,12 +524,13 @@ ${styleTags}
                   <div key={`t-${a.id}`} className="absolute left-0 right-0 flex hover:bg-muted/20" style={{ top, height: rowH }}>
                     <div className="flex items-center border-b border-r bg-card"
                       style={{ position: "sticky", left: 0, zIndex: 10, width: LEFT_W, fontSize: fontBody }}>
-                      <div className="truncate px-3 pl-8" style={{ width: "55%" }} title={a.nombre_actividad}>
+                      <div className="truncate px-3 pl-8" style={{ width: "42%" }} title={a.nombre_actividad}>
                         {truncate(a.nombre_actividad, 30)}
                       </div>
-                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "15%" }}>{fmtFecha(a.fecha_inicio)}</div>
-                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "15%" }}>{fmtFecha(a.fecha_fin)}</div>
-                      <div className="px-2 text-right tabular-nums" style={{ width: "15%" }}>{a.duracion_dias}</div>
+                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "12%" }}>{fmtFecha(a.fecha_inicio)}</div>
+                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "12%" }}>{fmtFecha(a.fecha_fin)}</div>
+                      <div className="px-2 text-right tabular-nums" style={{ width: "10%" }}>{a.duracion_dias}</div>
+                      <div className="px-2 text-right tabular-nums" style={{ width: "24%" }}>{fmtCosto(costoDeActividad(a))}</div>
                     </div>
                     <div className="relative border-b" style={{ width: totalW }}>
                       <BarWithDrag
@@ -516,6 +546,17 @@ ${styleTags}
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {totals && actividades.length > 0 && (
+        <div className="flex items-center justify-between rounded-md border bg-primary/5 px-4 py-2 text-sm">
+          <span className="font-semibold uppercase tracking-wide text-xs text-muted-foreground">
+            Costo total del cronograma
+          </span>
+          <span className="font-bold tabular-nums text-base">
+            {fmtCosto(totals.costoTotal)}
+          </span>
         </div>
       )}
 
