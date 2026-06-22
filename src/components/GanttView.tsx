@@ -31,7 +31,7 @@ type GView = "day" | "week" | "month";
 const BASE_CELL: Record<GView, number> = { day: 36, week: 16, month: 6 };
 const ROW_H = 30;
 const HEADER_H = 46;
-const LEFT_W = 380;
+const LEFT_W = 500;
 const clamp = (a: number, v: number, b: number) => Math.max(a, Math.min(b, v));
 
 function fmtFecha(iso: string) {
@@ -42,6 +42,16 @@ function truncate(s: string, n = 30) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
+const mxn = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+  maximumFractionDigits: 0,
+});
+function fmtCosto(v: number | undefined | null): string {
+  if (v == null || !Number.isFinite(Number(v)) || Number(v) <= 0) return "Sin costo";
+  return mxn.format(Number(v));
+}
+
 export function GanttView({
   actividades,
   settings,
@@ -50,6 +60,7 @@ export function GanttView({
   toolbarExtra,
   projectName,
   folio,
+  costos,
 }: {
   actividades: ActividadView[];
   settings: GanttSettings;
@@ -58,6 +69,8 @@ export function GanttView({
   toolbarExtra?: React.ReactNode;
   projectName?: string;
   folio?: string;
+  /** Costo por concepto_id (subtotal de la cotización) */
+  costos?: Record<string, number>;
 }) {
   const cal = useMemo(() => new Calendar(settings), [settings]);
   const [view, setView] = useState<GView>("week");
