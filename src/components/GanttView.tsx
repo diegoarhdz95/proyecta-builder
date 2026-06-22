@@ -348,8 +348,22 @@ ${styleTags}
     const s = new Date(Math.min(...starts));
     const e = new Date(Math.max(...ends));
     const bd = cal.businessDaysBetween(s, e);
-    return { start: s, end: e, businessDays: bd, weeks: Math.max(1, Math.ceil(bd / 5)) };
-  }, [actividades, cal]);
+    const costoTotal = actividades.reduce(
+      (sum, a) => sum + (a.concepto_id ? Number(costos?.[a.concepto_id] ?? 0) : 0),
+      0,
+    );
+    return { start: s, end: e, businessDays: bd, weeks: Math.max(1, Math.ceil(bd / 5)), costoTotal };
+  }, [actividades, cal, costos]);
+
+  function costoDeActividad(a: ActividadView): number {
+    if (!a.concepto_id) return 0;
+    return Number(costos?.[a.concepto_id] ?? 0);
+  }
+  function costoDeGrupo(clave: string): number {
+    const g = grupos.find((x) => x.clave === clave);
+    if (!g) return 0;
+    return g.items.reduce((s, a) => s + costoDeActividad(a), 0);
+  }
 
   const bodyH = rows.length * rowH;
 
