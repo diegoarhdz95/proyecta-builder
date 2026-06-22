@@ -10,7 +10,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Plus, BookOpen, Search, FilePlus2, Package, Users } from "lucide-react";
+import { Plus, BookOpen, Search, FilePlus2, Package, Users, Wrench, Truck } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Proyectos · Grupo Proyecta" }] }),
@@ -105,19 +113,31 @@ function ProyectosList() {
             <h1 className="text-lg font-semibold tracking-tight">{DESPACHO_NOMBRE}</h1>
             <p className="text-xs text-muted-foreground">Proyectos</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Link to="/catalogo">
-              <Button variant="outline"><BookOpen className="mr-2 h-4 w-4" />Catálogo</Button>
-            </Link>
-            <Link to="/materiales">
-              <Button variant="outline"><Package className="mr-2 h-4 w-4" />Materiales</Button>
-            </Link>
-            <Link to="/personal">
-              <Button variant="outline"><Users className="mr-2 h-4 w-4" />Personal</Button>
-            </Link>
-            <Link to="/proveedores">
-              <Button variant="outline"><BookOpen className="mr-2 h-4 w-4" />Proveedores</Button>
-            </Link>
+          <div className="flex items-center gap-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Wrench className="mr-2 h-4 w-4" />
+                  Herramientas
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel>Gestión</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/catalogo"><BookOpen className="h-4 w-4" />Catálogo</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/materiales"><Package className="h-4 w-4" />Materiales</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/personal"><Users className="h-4 w-4" />Personal</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/proveedores"><Truck className="h-4 w-4" />Proveedores</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Link to="/proyectos/nuevo">
               <Button><Plus className="mr-2 h-4 w-4" />Nuevo proyecto</Button>
             </Link>
