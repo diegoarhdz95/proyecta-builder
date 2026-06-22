@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { ExpedienteTab } from "@/components/ExpedienteTab";
 import { GastosTab } from "@/components/GastosTab";
+import { PresupuestoAlerts } from "@/components/PresupuestoAlerts";
 import { downloadOrShareReciboPDF } from "@/lib/generate-recibo-pdf";
 import { downloadOrShareReciboPersonalPDF } from "@/lib/generate-recibo-personal-pdf";
 import type { Personal, PersonalProyecto, PagoPersonal } from "@/lib/supabase";
@@ -163,6 +164,9 @@ function ProyectoPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-6">
+        <div className="mb-4">
+          <PresupuestoAlerts obraId={obraId} />
+        </div>
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList>
             <TabsTrigger value="cotizaciones">Cotizaciones</TabsTrigger>
