@@ -7,10 +7,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { ExpedienteTab } from "@/components/ExpedienteTab";
+import { downloadOrShareReciboPDF } from "@/lib/generate-recibo-pdf";
 import {
   DropdownMenu,
   DropdownMenuContent,
