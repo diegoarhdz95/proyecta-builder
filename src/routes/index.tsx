@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Plus, BookOpen, Search, FilePlus2, Package } from "lucide-react";
+import { Plus, BookOpen, Search, FilePlus2, Package, Users } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Proyectos · Grupo Proyecta" }] }),
@@ -111,6 +111,9 @@ function ProyectosList() {
             </Link>
             <Link to="/materiales">
               <Button variant="outline"><Package className="mr-2 h-4 w-4" />Materiales</Button>
+            </Link>
+            <Link to="/personal">
+              <Button variant="outline"><Users className="mr-2 h-4 w-4" />Personal</Button>
             </Link>
             <Link to="/proveedores">
               <Button variant="outline"><BookOpen className="mr-2 h-4 w-4" />Proveedores</Button>

@@ -10,11 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ProveedoresRouteImport } from './routes/proveedores'
+import { Route as PersonalRouteImport } from './routes/personal'
 import { Route as MaterialesRouteImport } from './routes/materiales'
 import { Route as CatalogoRouteImport } from './routes/catalogo'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ReciboTokenRouteImport } from './routes/recibo.$token'
 import { Route as ProyectosNuevoRouteImport } from './routes/proyectos.nuevo'
 import { Route as ProyectosObraIdRouteImport } from './routes/proyectos.$obraId'
+import { Route as PersonalIdRouteImport } from './routes/personal.$id'
 import { Route as CotizacionesNuevaRouteImport } from './routes/cotizaciones.nueva'
 import { Route as CotizacionesIdRouteImport } from './routes/cotizaciones.$id'
 import { Route as CotizacionesIdEditarRouteImport } from './routes/cotizaciones.$id_.editar'
@@ -24,6 +27,11 @@ import { Route as CotizacionesIdDesgloseRouteImport } from './routes/cotizacione
 const ProveedoresRoute = ProveedoresRouteImport.update({
   id: '/proveedores',
   path: '/proveedores',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PersonalRoute = PersonalRouteImport.update({
+  id: '/personal',
+  path: '/personal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MaterialesRoute = MaterialesRouteImport.update({
@@ -41,6 +49,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReciboTokenRoute = ReciboTokenRouteImport.update({
+  id: '/recibo/$token',
+  path: '/recibo/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProyectosNuevoRoute = ProyectosNuevoRouteImport.update({
   id: '/proyectos/nuevo',
   path: '/proyectos/nuevo',
@@ -50,6 +63,11 @@ const ProyectosObraIdRoute = ProyectosObraIdRouteImport.update({
   id: '/proyectos/$obraId',
   path: '/proyectos/$obraId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PersonalIdRoute = PersonalIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => PersonalRoute,
 } as any)
 const CotizacionesNuevaRoute = CotizacionesNuevaRouteImport.update({
   id: '/cotizaciones/nueva',
@@ -81,11 +99,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/materiales': typeof MaterialesRoute
+  '/personal': typeof PersonalRouteWithChildren
   '/proveedores': typeof ProveedoresRoute
   '/cotizaciones/$id': typeof CotizacionesIdRouteWithChildren
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/personal/$id': typeof PersonalIdRoute
   '/proyectos/$obraId': typeof ProyectosObraIdRoute
   '/proyectos/nuevo': typeof ProyectosNuevoRoute
+  '/recibo/$token': typeof ReciboTokenRoute
   '/cotizaciones/$id/desglose': typeof CotizacionesIdDesgloseRoute
   '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
   '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
@@ -94,11 +115,14 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/materiales': typeof MaterialesRoute
+  '/personal': typeof PersonalRouteWithChildren
   '/proveedores': typeof ProveedoresRoute
   '/cotizaciones/$id': typeof CotizacionesIdRouteWithChildren
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/personal/$id': typeof PersonalIdRoute
   '/proyectos/$obraId': typeof ProyectosObraIdRoute
   '/proyectos/nuevo': typeof ProyectosNuevoRoute
+  '/recibo/$token': typeof ReciboTokenRoute
   '/cotizaciones/$id/desglose': typeof CotizacionesIdDesgloseRoute
   '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
   '/cotizaciones/$id/editar': typeof CotizacionesIdEditarRoute
@@ -108,11 +132,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/catalogo': typeof CatalogoRoute
   '/materiales': typeof MaterialesRoute
+  '/personal': typeof PersonalRouteWithChildren
   '/proveedores': typeof ProveedoresRoute
   '/cotizaciones/$id': typeof CotizacionesIdRouteWithChildren
   '/cotizaciones/nueva': typeof CotizacionesNuevaRoute
+  '/personal/$id': typeof PersonalIdRoute
   '/proyectos/$obraId': typeof ProyectosObraIdRoute
   '/proyectos/nuevo': typeof ProyectosNuevoRoute
+  '/recibo/$token': typeof ReciboTokenRoute
   '/cotizaciones/$id/desglose': typeof CotizacionesIdDesgloseRoute
   '/cotizaciones/$id/resumen': typeof CotizacionesIdResumenRoute
   '/cotizaciones/$id_/editar': typeof CotizacionesIdEditarRoute
@@ -123,11 +150,14 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/materiales'
+    | '/personal'
     | '/proveedores'
     | '/cotizaciones/$id'
     | '/cotizaciones/nueva'
+    | '/personal/$id'
     | '/proyectos/$obraId'
     | '/proyectos/nuevo'
+    | '/recibo/$token'
     | '/cotizaciones/$id/desglose'
     | '/cotizaciones/$id/resumen'
     | '/cotizaciones/$id/editar'
@@ -136,11 +166,14 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/materiales'
+    | '/personal'
     | '/proveedores'
     | '/cotizaciones/$id'
     | '/cotizaciones/nueva'
+    | '/personal/$id'
     | '/proyectos/$obraId'
     | '/proyectos/nuevo'
+    | '/recibo/$token'
     | '/cotizaciones/$id/desglose'
     | '/cotizaciones/$id/resumen'
     | '/cotizaciones/$id/editar'
@@ -149,11 +182,14 @@ export interface FileRouteTypes {
     | '/'
     | '/catalogo'
     | '/materiales'
+    | '/personal'
     | '/proveedores'
     | '/cotizaciones/$id'
     | '/cotizaciones/nueva'
+    | '/personal/$id'
     | '/proyectos/$obraId'
     | '/proyectos/nuevo'
+    | '/recibo/$token'
     | '/cotizaciones/$id/desglose'
     | '/cotizaciones/$id/resumen'
     | '/cotizaciones/$id_/editar'
@@ -163,11 +199,13 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CatalogoRoute: typeof CatalogoRoute
   MaterialesRoute: typeof MaterialesRoute
+  PersonalRoute: typeof PersonalRouteWithChildren
   ProveedoresRoute: typeof ProveedoresRoute
   CotizacionesIdRoute: typeof CotizacionesIdRouteWithChildren
   CotizacionesNuevaRoute: typeof CotizacionesNuevaRoute
   ProyectosObraIdRoute: typeof ProyectosObraIdRoute
   ProyectosNuevoRoute: typeof ProyectosNuevoRoute
+  ReciboTokenRoute: typeof ReciboTokenRoute
   CotizacionesIdEditarRoute: typeof CotizacionesIdEditarRoute
 }
 
@@ -178,6 +216,13 @@ declare module '@tanstack/react-router' {
       path: '/proveedores'
       fullPath: '/proveedores'
       preLoaderRoute: typeof ProveedoresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/personal': {
+      id: '/personal'
+      path: '/personal'
+      fullPath: '/personal'
+      preLoaderRoute: typeof PersonalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/materiales': {
@@ -201,6 +246,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/recibo/$token': {
+      id: '/recibo/$token'
+      path: '/recibo/$token'
+      fullPath: '/recibo/$token'
+      preLoaderRoute: typeof ReciboTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/proyectos/nuevo': {
       id: '/proyectos/nuevo'
       path: '/proyectos/nuevo'
@@ -214,6 +266,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/proyectos/$obraId'
       preLoaderRoute: typeof ProyectosObraIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/personal/$id': {
+      id: '/personal/$id'
+      path: '/$id'
+      fullPath: '/personal/$id'
+      preLoaderRoute: typeof PersonalIdRouteImport
+      parentRoute: typeof PersonalRoute
     }
     '/cotizaciones/nueva': {
       id: '/cotizaciones/nueva'
@@ -253,6 +312,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface PersonalRouteChildren {
+  PersonalIdRoute: typeof PersonalIdRoute
+}
+
+const PersonalRouteChildren: PersonalRouteChildren = {
+  PersonalIdRoute: PersonalIdRoute,
+}
+
+const PersonalRouteWithChildren = PersonalRoute._addFileChildren(
+  PersonalRouteChildren,
+)
+
 interface CotizacionesIdRouteChildren {
   CotizacionesIdDesgloseRoute: typeof CotizacionesIdDesgloseRoute
   CotizacionesIdResumenRoute: typeof CotizacionesIdResumenRoute
@@ -271,11 +342,13 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CatalogoRoute: CatalogoRoute,
   MaterialesRoute: MaterialesRoute,
+  PersonalRoute: PersonalRouteWithChildren,
   ProveedoresRoute: ProveedoresRoute,
   CotizacionesIdRoute: CotizacionesIdRouteWithChildren,
   CotizacionesNuevaRoute: CotizacionesNuevaRoute,
   ProyectosObraIdRoute: ProyectosObraIdRoute,
   ProyectosNuevoRoute: ProyectosNuevoRoute,
+  ReciboTokenRoute: ReciboTokenRoute,
   CotizacionesIdEditarRoute: CotizacionesIdEditarRoute,
 }
 export const routeTree = rootRouteImport
