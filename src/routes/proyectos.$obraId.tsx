@@ -14,7 +14,7 @@ import { ExpedienteTab } from "@/components/ExpedienteTab";
 import { downloadOrShareReciboPDF } from "@/lib/generate-recibo-pdf";
 import { downloadOrShareReciboPersonalPDF } from "@/lib/generate-recibo-personal-pdf";
 import type { Personal, PersonalProyecto, PagoPersonal } from "@/lib/supabase";
-import { Copy, Link2, UserPlus } from "lucide-react";
+import { Link2, UserPlus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
