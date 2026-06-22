@@ -488,6 +488,17 @@ function Editor() {
           </div>
         </aside>
       </div>
+      {apuItem && (
+        <ApuDialog
+          open={!!apuItem}
+          onOpenChange={(o) => !o && setApuItem(null)}
+          item={apuItem}
+          onApplied={async () => {
+            await recalcularTotales();
+            qc.invalidateQueries({ queryKey: ["proyecto_conceptos", id] });
+          }}
+        />
+      )}
     </div>
   );
 }
