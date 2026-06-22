@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { ArrowLeft, Clock, Download, FileText, PieChart, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Calculator, Clock, Download, FileText, PieChart, Plus, Trash2 } from "lucide-react";
 import { generateCotizacionPDF } from "@/lib/generate-pdf";
+import { ApuDialog } from "@/components/ApuDialog";
 
 export const Route = createFileRoute("/cotizaciones/$id_/editar")({
   head: () => ({ meta: [{ title: "Editor de cotización · Grupo Proyecta" }] }),
@@ -25,6 +26,7 @@ function Editor() {
   const [tiempoTexto, setTiempoTexto] = useState("");
   const [tiempoIncluir, setTiempoIncluir] = useState(false);
   const [tiempoHydrated, setTiempoHydrated] = useState(false);
+  const [apuItem, setApuItem] = useState<ProyectoConcepto | null>(null);
 
   const { data: proyecto } = useQuery({
     queryKey: ["proyecto", id],
@@ -407,9 +409,22 @@ function Editor() {
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">{currency(Number(it.subtotal))}</td>
                   <td className="px-2">
-                    <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)} className="h-7 w-7 text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-0.5">
+                      {it.unidad !== "%" && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setApuItem(it)}
+                          className="h-7 w-7 text-muted-foreground hover:text-primary"
+                          title="Desglose de materiales (APU)"
+                        >
+                          <Calculator className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button size="icon" variant="ghost" onClick={() => removeItem(it.id)} className="h-7 w-7 text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
