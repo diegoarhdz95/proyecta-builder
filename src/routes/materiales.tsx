@@ -282,4 +282,3 @@ function MaterialesPage() {
   );
 }
 
-export { currency };
