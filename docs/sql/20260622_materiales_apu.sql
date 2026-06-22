@@ -70,3 +70,11 @@ insert into public.materiales (despacho_id, nombre, categoria, unidad, precio_un
   ('0905a074-4326-4773-8eaf-6ad46e01f304','Cable THW cal. 12 (rollo 100 m)','Eléctrico','rollo',2200),
   ('0905a074-4326-4773-8eaf-6ad46e01f304','Mezcla asfáltica en caliente','Pavimentos','ton',2850)
 on conflict do nothing;
+-- =====================================================
+-- GRANTs requeridos por la Data API (PostgREST).
+-- Sin esto, el frontend recibe 401 "permission denied".
+-- =====================================================
+grant select, insert, update, delete on public.materiales to anon, authenticated;
+grant select, insert, update, delete on public.concepto_apu to anon, authenticated;
+grant all on public.materiales to service_role;
+grant all on public.concepto_apu to service_role;
