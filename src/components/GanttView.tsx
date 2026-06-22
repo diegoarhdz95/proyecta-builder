@@ -524,12 +524,13 @@ ${styleTags}
                   <div key={`t-${a.id}`} className="absolute left-0 right-0 flex hover:bg-muted/20" style={{ top, height: rowH }}>
                     <div className="flex items-center border-b border-r bg-card"
                       style={{ position: "sticky", left: 0, zIndex: 10, width: LEFT_W, fontSize: fontBody }}>
-                      <div className="truncate px-3 pl-8" style={{ width: "55%" }} title={a.nombre_actividad}>
+                      <div className="truncate px-3 pl-8" style={{ width: "42%" }} title={a.nombre_actividad}>
                         {truncate(a.nombre_actividad, 30)}
                       </div>
-                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "15%" }}>{fmtFecha(a.fecha_inicio)}</div>
-                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "15%" }}>{fmtFecha(a.fecha_fin)}</div>
-                      <div className="px-2 text-right tabular-nums" style={{ width: "15%" }}>{a.duracion_dias}</div>
+                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "12%" }}>{fmtFecha(a.fecha_inicio)}</div>
+                      <div className="px-2 tabular-nums text-muted-foreground" style={{ width: "12%" }}>{fmtFecha(a.fecha_fin)}</div>
+                      <div className="px-2 text-right tabular-nums" style={{ width: "10%" }}>{a.duracion_dias}</div>
+                      <div className="px-2 text-right tabular-nums" style={{ width: "24%" }}>{fmtCosto(costoDeActividad(a))}</div>
                     </div>
                     <div className="relative border-b" style={{ width: totalW }}>
                       <BarWithDrag
