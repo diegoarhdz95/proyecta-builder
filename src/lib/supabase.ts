@@ -92,3 +92,43 @@ export type ConceptoApu = {
   material_id: string;
   rendimiento: number;
 };
+
+export type PersonalCategoria = "destajista" | "contratista";
+
+export type Personal = {
+  id: string;
+  despacho_id: string;
+  nombre: string;
+  categoria: PersonalCategoria;
+  especialidad: string | null;
+  telefono: string | null;
+  notas: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type PersonalProyecto = {
+  id: string;
+  personal_id: string;
+  proyecto_id: string;
+  actividad: string | null;
+  monto_acordado: number;
+  notas: string | null;
+  created_at?: string;
+};
+
+export type PagoPersonal = {
+  id: string;
+  personal_id: string;
+  proyecto_id: string;
+  concepto: string;
+  monto: number;
+  fecha_pago: string;
+  metodo_pago: string | null;
+  notas: string | null;
+  numero_recibo: number | null;
+  acepta_token: string;
+  aceptado_at: string | null;
+  aceptado_ip: string | null;
+  created_at?: string;
+};
