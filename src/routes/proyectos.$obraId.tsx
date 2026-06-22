@@ -7,10 +7,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { ExpedienteTab } from "@/components/ExpedienteTab";
+import { downloadOrShareReciboPDF } from "@/lib/generate-recibo-pdf";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -423,6 +424,7 @@ type Pago = {
   fecha_pago: string;
   metodo_pago: string | null;
   notas: string | null;
+  numero_pago?: number | null;
 };
 
 function PagosTab({ obraId }: { obraId: string }) {
@@ -441,11 +443,24 @@ function PagosTab({ obraId }: { obraId: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("proyectos")
-        .select("id, folio, nombre_proyecto, total_con_iva")
+        .select("id, folio, nombre_proyecto, total_con_iva, cliente_nombre")
         .eq("obra_id", obraId)
         .order("folio", { ascending: false });
       if (error) throw error;
-      return data as Array<Pick<Proyecto, "id" | "folio" | "nombre_proyecto" | "total_con_iva">>;
+      return data as Array<Pick<Proyecto, "id" | "folio" | "nombre_proyecto" | "total_con_iva" | "cliente_nombre">>;
+    },
+  });
+
+  const { data: despacho } = useQuery({
+    queryKey: ["despacho", DESPACHO_ID],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("despachos")
+        .select("nombre, logo_url")
+        .eq("id", DESPACHO_ID)
+        .single();
+      if (error) throw error;
+      return data as { nombre: string; logo_url: string | null };
     },
   });
 
@@ -511,6 +526,50 @@ function PagosTab({ obraId }: { obraId: string }) {
     if (error) return toast.error(error.message);
     toast.success("Pago eliminado");
     qc.invalidateQueries({ queryKey: ["pagos_cliente", obraId] });
+  }
+
+  async function generarRecibo(p: Pago) {
+    try {
+      const proy = proyectos?.find((x) => x.id === p.proyecto_id);
+      if (!proy) return toast.error("Cotización no encontrada");
+
+      // Asignar número de recibo consecutivo (por despacho) si aún no tiene
+      let numero = p.numero_pago ?? null;
+      if (!numero) {
+        const { data: maxRow, error: maxErr } = await supabase
+          .from("pagos_cliente")
+          .select("numero_pago, proyectos!inner(despacho_id)")
+          .eq("proyectos.despacho_id", DESPACHO_ID)
+          .not("numero_pago", "is", null)
+          .order("numero_pago", { ascending: false })
+          .limit(1);
+        if (maxErr) throw maxErr;
+        const last = (maxRow?.[0]?.numero_pago as number | null) ?? 0;
+        numero = last + 1;
+        const { error: upErr } = await supabase
+          .from("pagos_cliente")
+          .update({ numero_pago: numero })
+          .eq("id", p.id);
+        if (upErr) throw upErr;
+        qc.invalidateQueries({ queryKey: ["pagos_cliente", obraId] });
+      }
+
+      await downloadOrShareReciboPDF({
+        despacho: despacho ?? { nombre: "Grupo Proyecta", logo_url: null },
+        numeroRecibo: numero,
+        proyectoNombre: proy.nombre_proyecto,
+        folio: proy.folio,
+        clienteNombre: proy.cliente_nombre || "",
+        monto: Number(p.monto),
+        concepto: p.concepto,
+        fechaPago: p.fecha_pago,
+        metodoPago: p.metodo_pago,
+        notas: p.notas,
+      });
+      toast.success(`Recibo #${String(numero).padStart(5, "0")} generado`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
   }
 
   return (
@@ -583,9 +642,21 @@ function PagosTab({ obraId }: { obraId: string }) {
                 <td className="px-4 py-2.5">{p.metodo_pago ?? "—"}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{p.notas ?? "—"}</td>
                 <td className="px-4 py-2.5 text-right">
-                  <Button variant="ghost" size="icon" onClick={() => eliminar(p.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      onClick={() => generarRecibo(p)}
+                      title="Generar recibo PDF"
+                    >
+                      <FileDown className="mr-1 h-3.5 w-3.5" />
+                      Generar recibo
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => eliminar(p.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}
