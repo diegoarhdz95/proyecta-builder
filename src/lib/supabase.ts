@@ -132,3 +132,19 @@ export type PagoPersonal = {
   aceptado_ip: string | null;
   created_at?: string;
 };
+
+export type GastoCategoria = "materiales" | "otros";
+
+export type GastoProyecto = {
+  id: string;
+  despacho_id: string;
+  proyecto_id: string;
+  categoria: GastoCategoria;
+  concepto: string;
+  proveedor: string | null;
+  monto: number;
+  fecha_pago: string;
+  metodo_pago: string | null;
+  notas: string | null;
+  created_at?: string;
+};
