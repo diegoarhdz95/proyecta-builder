@@ -74,3 +74,21 @@ export type ProyectoConcepto = {
   precio_unitario_final: number;
   subtotal: number;
 };
+
+export type Material = {
+  id: string;
+  despacho_id: string;
+  nombre: string;
+  categoria: string | null;
+  unidad: string;
+  precio_unitario: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ConceptoApu = {
+  id: string;
+  proyecto_concepto_id: string;
+  material_id: string;
+  rendimiento: number;
+};
