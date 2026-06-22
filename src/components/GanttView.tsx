@@ -549,6 +549,17 @@ ${styleTags}
         </div>
       )}
 
+      {totals && actividades.length > 0 && (
+        <div className="flex items-center justify-between rounded-md border bg-primary/5 px-4 py-2 text-sm">
+          <span className="font-semibold uppercase tracking-wide text-xs text-muted-foreground">
+            Costo total del cronograma
+          </span>
+          <span className="font-bold tabular-nums text-base">
+            {fmtCosto(totals.costoTotal)}
+          </span>
+        </div>
+      )}
+
       <Sheet open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <SheetContent className="w-full sm:max-w-md">
           <SheetHeader><SheetTitle>Editar actividad</SheetTitle></SheetHeader>
