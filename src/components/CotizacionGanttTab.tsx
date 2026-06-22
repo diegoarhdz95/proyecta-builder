@@ -67,6 +67,25 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
     },
   });
 
+  // Costos por concepto_id (subtotal de proyecto_conceptos)
+  const { data: costos } = useQuery({
+    queryKey: ["proyecto_conceptos_costos", cotizacion.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("proyecto_conceptos")
+        .select("concepto_id, subtotal")
+        .eq("proyecto_id", cotizacion.id);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const r of data ?? []) {
+        if (!r.concepto_id) continue;
+        map[r.concepto_id as string] =
+          (map[r.concepto_id as string] ?? 0) + Number(r.subtotal ?? 0);
+      }
+      return map;
+    },
+  });
+
   const [editorActs, setEditorActs] = useState<ActividadView[] | null>(null);
   const hasSavedCronograma = (actividadesDb ?? []).length > 0;
   const savedStart = actividadesDb?.[0]?.fecha_inicio ?? null;
@@ -313,6 +332,7 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
             settings={settings}
             onChange={setPreview}
             readonly={false}
+            costos={costos}
           />
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Button size="lg" onClick={() => setConfirmOpen(true)}>
@@ -332,6 +352,7 @@ export function CotizacionGanttTab({ cotizacion }: { cotizacion: Cotizacion }) {
           onChange={setEditorActs}
           projectName={cotizacion.nombre_proyecto}
           folio={cotizacion.folio}
+          costos={costos}
         />
       )}
 
