@@ -183,8 +183,8 @@ function ProyectoPage() {
             <div className="flex justify-end">
               <Button onClick={nuevaCotizacion}><Plus className="mr-2 h-4 w-4" />Nueva cotización</Button>
             </div>
-            <div className="overflow-hidden rounded-lg border bg-card">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-lg border bg-card">
+              <table className="w-full min-w-[560px] text-sm">
                 <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3">Folio</th>
