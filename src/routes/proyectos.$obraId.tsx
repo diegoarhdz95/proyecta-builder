@@ -1,23 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase, DESPACHO_ID, IVA_RATE, type Obra, type Proyecto } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Plus, Trash2, FileDown, Receipt } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { ExpedienteTab } from "@/components/ExpedienteTab";
-import { GastosTab } from "@/components/GastosTab";
-import { QuickGastoSheet } from "@/components/QuickGastoSheet";
-import { downloadOrShareReciboPDF } from "@/lib/generate-recibo-pdf";
-import { downloadOrShareReciboPersonalPDF } from "@/lib/generate-recibo-personal-pdf";
-import { getPublicSiteUrl } from "@/lib/public-site-url";
-import type { Personal, PersonalProyecto, PagoPersonal } from "@/lib/supabase";
-import { Link2, UserPlus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,8 +48,7 @@ function ProyectoPage() {
   const { obraId } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "pagos" | "personal" | "gastos" | "expediente">("cotizaciones");
-  const [quickGastoOpen, setQuickGastoOpen] = useState(false);
+  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "expediente">("cotizaciones");
 
   const { data: obra } = useQuery({
     queryKey: ["obra", obraId],
@@ -81,6 +70,32 @@ function ProyectoPage() {
         .order("folio", { ascending: false });
       if (error) throw error;
       return data as Proyecto[];
+    },
+  });
+
+  const cotIds = (cotizaciones ?? []).map((c) => c.id);
+
+  const { data: resumenFin } = useQuery({
+    queryKey: ["cotizacion_resumen_fin", obraId, cotIds.join(",")],
+    enabled: cotIds.length > 0,
+    queryFn: async () => {
+      const [{ data: pagos }, { data: gastos }, { data: pagosPers }] = await Promise.all([
+        supabase.from("pagos_cliente").select("proyecto_id, monto").in("proyecto_id", cotIds),
+        supabase.from("gastos_proyecto").select("proyecto_id, monto").in("proyecto_id", cotIds),
+        supabase.from("pagos_personal").select("proyecto_id, monto").in("proyecto_id", cotIds),
+      ]);
+      const cobrado = new Map<string, number>();
+      const gastado = new Map<string, number>();
+      (pagos ?? []).forEach((p: { proyecto_id: string; monto: number }) =>
+        cobrado.set(p.proyecto_id, (cobrado.get(p.proyecto_id) ?? 0) + Number(p.monto || 0)),
+      );
+      (gastos ?? []).forEach((g: { proyecto_id: string; monto: number }) =>
+        gastado.set(g.proyecto_id, (gastado.get(g.proyecto_id) ?? 0) + Number(g.monto || 0)),
+      );
+      (pagosPers ?? []).forEach((p: { proyecto_id: string; monto: number }) =>
+        gastado.set(p.proyecto_id, (gastado.get(p.proyecto_id) ?? 0) + Number(p.monto || 0)),
+      );
+      return { cobrado, gastado };
     },
   });
 
