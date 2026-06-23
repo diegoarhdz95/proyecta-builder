@@ -4,9 +4,12 @@ import { useState, Fragment } from "react";
 import { supabase, IVA_RATE, type Proyecto, type Partida, type ProyectoConcepto } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ArrowLeft, Pencil, BarChart3, Wallet, Calendar, FileText, Download, Scissors, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Pencil, BarChart3, Wallet, Calendar, FileText, Download, Scissors, AlertTriangle, Users, Receipt } from "lucide-react";
 import { CotizacionGanttTab } from "@/components/CotizacionGanttTab";
 import { CorteDePagosTab } from "@/components/CorteDePagosTab";
+import { PagosClienteCotizacionTab } from "@/components/PagosClienteCotizacionTab";
+import { PersonalCotizacionTab } from "@/components/PersonalCotizacionTab";
+import { GastosTab } from "@/components/GastosTab";
 import { generateCotizacionPDF } from "@/lib/generate-pdf";
 import { toast } from "sonner";
 import { EstadoBadge } from "@/lib/estado-cotizacion";
@@ -24,7 +27,7 @@ function currency(n: number) {
 function CotizacionDashboard() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"resumen" | "desglose" | "pagos" | "corte" | "gantt">("resumen");
+  const [tab, setTab] = useState<"resumen" | "desglose" | "pagos" | "personal" | "gastos" | "corte" | "gantt">("resumen");
   const [corteVisitado, setCorteVisitado] = useState(false);
   const { data: alertas } = useProyectoAlertas(id);
   const mostrarAvisoCorte = !corteVisitado && (alertas?.length ?? 0) > 0;
@@ -46,17 +49,6 @@ function CotizacionDashboard() {
         .eq("proyecto_id", id);
       if (error) throw error;
       return count ?? 0;
-    },
-  });
-
-  const { data: pagos } = useQuery({
-    queryKey: ["cotizacion_pagos", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pagos_cliente").select("monto, fecha_pago, concepto").eq("proyecto_id", id)
-        .order("fecha_pago", { ascending: false });
-      if (error) throw error;
-      return data as { monto: number; fecha_pago: string; concepto: string | null }[];
     },
   });
 
@@ -176,6 +168,8 @@ function CotizacionDashboard() {
             <TabsTrigger value="resumen"><FileText className="h-3.5 w-3.5 mr-1" />Resumen</TabsTrigger>
             <TabsTrigger value="desglose"><BarChart3 className="h-3.5 w-3.5 mr-1" />Desglose</TabsTrigger>
             <TabsTrigger value="pagos"><Wallet className="h-3.5 w-3.5 mr-1" />Pagos</TabsTrigger>
+            <TabsTrigger value="personal"><Users className="h-3.5 w-3.5 mr-1" />Personal</TabsTrigger>
+            <TabsTrigger value="gastos"><Receipt className="h-3.5 w-3.5 mr-1" />Gastos</TabsTrigger>
             <TabsTrigger value="corte">
               <Scissors className="h-3.5 w-3.5 mr-1" />Corte de Pagos
               {mostrarAvisoCorte && (
@@ -316,25 +310,15 @@ function CotizacionDashboard() {
           </TabsContent>
 
           <TabsContent value="pagos" className="mt-4">
-            <div className="overflow-hidden rounded-lg border bg-card">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Concepto</th><th className="px-4 py-3 text-right">Monto</th></tr>
-                </thead>
-                <tbody>
-                  {(pagos ?? []).length === 0 && (
-                    <tr><td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">Sin pagos registrados</td></tr>
-                  )}
-                  {pagos?.map((pg, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="px-4 py-2.5 tabular-nums">{pg.fecha_pago}</td>
-                      <td className="px-4 py-2.5">{pg.concepto ?? "—"}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{currency(pg.monto)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <PagosClienteCotizacionTab proyectoId={id} />
+          </TabsContent>
+
+          <TabsContent value="personal" className="mt-4">
+            <PersonalCotizacionTab proyectoId={id} />
+          </TabsContent>
+
+          <TabsContent value="gastos" className="mt-4">
+            <GastosTab proyectoId={id} />
           </TabsContent>
 
           <TabsContent value="gantt" className="mt-4">
