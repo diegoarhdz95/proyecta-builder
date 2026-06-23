@@ -5,6 +5,7 @@ import { supabase, DESPACHO_ID, IVA_RATE, type Obra, type Proyecto } from "@/lib
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { ExpedienteTab } from "@/components/ExpedienteTab";
@@ -51,6 +52,7 @@ function ProyectoPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"cotizaciones" | "pagos" | "gastos" | "desglose" | "expediente">("cotizaciones");
+  const [search, setSearch] = useState("");
 
   const { data: obra } = useQuery({
     queryKey: ["obra", obraId],
@@ -166,34 +168,54 @@ function ProyectoPage() {
             <TabsTrigger value="expediente">Expediente</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="cotizaciones" className="mt-6 space-y-4">
-            <div className="flex justify-end">
+          <TabsContent value="cotizaciones" className="mt-3 space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por folio o nombre…"
+                className="sm:max-w-xs"
+              />
               <Button onClick={nuevaCotizacion}><Plus className="mr-2 h-4 w-4" />Nueva cotización</Button>
             </div>
             <div className="overflow-x-auto rounded-lg border bg-card">
               <table className="w-full min-w-[520px] text-sm">
                 <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3">Folio</th>
-                    <th className="px-4 py-3">Nombre</th>
-                    <th className="px-4 py-3">Estado</th>
-                    <th className="px-4 py-3"></th>
+                    <th className="px-4 py-2">Folio</th>
+                    <th className="px-4 py-2">Nombre</th>
+                    <th className="px-4 py-2">Fecha</th>
+                    <th className="px-4 py-2">Estado</th>
+                    <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {cotizaciones?.length === 0 && (
-                    <tr><td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">Sin cotizaciones aún</td></tr>
-                  )}
-                  {cotizaciones?.map((p) => {
+                  {(() => {
+                    const q = search.trim().toLowerCase();
+                    const filtered = (cotizaciones ?? []).filter(
+                      (p) =>
+                        !q ||
+                        p.folio.toLowerCase().includes(q) ||
+                        (p.nombre_proyecto ?? "").toLowerCase().includes(q),
+                    );
+                    if (filtered.length === 0) {
+                      return (
+                        <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">{cotizaciones?.length ? "Sin resultados" : "Sin cotizaciones aún"}</td></tr>
+                      );
+                    }
+                    return filtered.map((p) => {
                     return (
                     <tr
                       key={p.id}
                       className="cursor-pointer border-t hover:bg-muted/30"
                       onClick={() => navigate({ to: "/cotizaciones/$id", params: { id: p.id } })}
                     >
-                      <td className="px-4 py-3 font-mono text-xs">{p.folio}</td>
-                      <td className="px-4 py-3 font-medium">{p.nombre_proyecto}</td>
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-4 py-2 font-mono text-xs">{p.folio}</td>
+                      <td className="px-4 py-2 font-medium">{p.nombre_proyecto}</td>
+                      <td className="px-4 py-2 text-muted-foreground tabular-nums">
+                        {p.created_at ? new Date(p.created_at).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                      </td>
+                      <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
@@ -212,7 +234,7 @@ function ProyectoPage() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
-                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-3">
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -242,7 +264,8 @@ function ProyectoPage() {
                       </td>
                     </tr>
                     );
-                  })}
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>
