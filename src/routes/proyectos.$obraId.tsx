@@ -75,32 +75,6 @@ function ProyectoPage() {
     },
   });
 
-  const cotIds = (cotizaciones ?? []).map((c) => c.id);
-
-  const { data: resumenFin } = useQuery({
-    queryKey: ["cotizacion_resumen_fin", obraId, cotIds.join(",")],
-    enabled: cotIds.length > 0,
-    queryFn: async () => {
-      const [{ data: pagos }, { data: gastos }, { data: pagosPers }] = await Promise.all([
-        supabase.from("pagos_cliente").select("proyecto_id, monto").in("proyecto_id", cotIds),
-        supabase.from("gastos_proyecto").select("proyecto_id, monto").in("proyecto_id", cotIds),
-        supabase.from("pagos_personal").select("proyecto_id, monto").in("proyecto_id", cotIds),
-      ]);
-      const cobrado = new Map<string, number>();
-      const gastado = new Map<string, number>();
-      (pagos ?? []).forEach((p: { proyecto_id: string; monto: number }) =>
-        cobrado.set(p.proyecto_id, (cobrado.get(p.proyecto_id) ?? 0) + Number(p.monto || 0)),
-      );
-      (gastos ?? []).forEach((g: { proyecto_id: string; monto: number }) =>
-        gastado.set(g.proyecto_id, (gastado.get(g.proyecto_id) ?? 0) + Number(g.monto || 0)),
-      );
-      (pagosPers ?? []).forEach((p: { proyecto_id: string; monto: number }) =>
-        gastado.set(p.proyecto_id, (gastado.get(p.proyecto_id) ?? 0) + Number(p.monto || 0)),
-      );
-      return { cobrado, gastado };
-    },
-  });
-
   async function cambiarEstado(id: string, estado: string) {
     const { error } = await supabase.from("proyectos").update({ estado }).eq("id", id);
     if (error) return toast.error(error.message);
