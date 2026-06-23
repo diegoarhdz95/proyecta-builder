@@ -4,13 +4,13 @@ import { useState, Fragment } from "react";
 import { supabase, IVA_RATE, type Proyecto, type Partida, type ProyectoConcepto } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ArrowLeft, Pencil, BarChart3, Wallet, Calendar, FileText, Download, Scissors } from "lucide-react";
+import { ArrowLeft, Pencil, BarChart3, Wallet, Calendar, FileText, Download, Scissors, AlertTriangle } from "lucide-react";
 import { CotizacionGanttTab } from "@/components/CotizacionGanttTab";
 import { CorteDePagosTab } from "@/components/CorteDePagosTab";
 import { generateCotizacionPDF } from "@/lib/generate-pdf";
 import { toast } from "sonner";
 import { EstadoBadge } from "@/lib/estado-cotizacion";
-import { PresupuestoAlerts } from "@/components/PresupuestoAlerts";
+import { useProyectoAlertas } from "@/components/PresupuestoAlerts";
 
 export const Route = createFileRoute("/cotizaciones/$id")({
   head: () => ({ meta: [{ title: "Cotización · Grupo Proyecta" }] }),
@@ -25,6 +25,9 @@ function CotizacionDashboard() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const [tab, setTab] = useState<"resumen" | "desglose" | "pagos" | "corte" | "gantt">("resumen");
+  const [corteVisitado, setCorteVisitado] = useState(false);
+  const { data: alertas } = useProyectoAlertas(id);
+  const mostrarAvisoCorte = !corteVisitado && (alertas?.length ?? 0) > 0;
 
   const { data: p } = useQuery({
     queryKey: ["cotizacion_dashboard", id],
@@ -140,7 +143,6 @@ function CotizacionDashboard() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-6 space-y-5">
-        <PresupuestoAlerts proyectoId={id} />
         {/* Resumen compacto */}
         <section className="rounded-lg border bg-card p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -162,12 +164,27 @@ function CotizacionDashboard() {
           </div>
         </section>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => {
+            const next = v as typeof tab;
+            setTab(next);
+            if (next === "corte") setCorteVisitado(true);
+          }}
+        >
           <TabsList>
             <TabsTrigger value="resumen"><FileText className="h-3.5 w-3.5 mr-1" />Resumen</TabsTrigger>
             <TabsTrigger value="desglose"><BarChart3 className="h-3.5 w-3.5 mr-1" />Desglose</TabsTrigger>
             <TabsTrigger value="pagos"><Wallet className="h-3.5 w-3.5 mr-1" />Pagos</TabsTrigger>
-            <TabsTrigger value="corte"><Scissors className="h-3.5 w-3.5 mr-1" />Corte de Pagos</TabsTrigger>
+            <TabsTrigger value="corte">
+              <Scissors className="h-3.5 w-3.5 mr-1" />Corte de Pagos
+              {mostrarAvisoCorte && (
+                <AlertTriangle
+                  className="ml-1 h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
+                  aria-label="Alerta de presupuesto"
+                />
+              )}
+            </TabsTrigger>
             <TabsTrigger value="gantt"><Calendar className="h-3.5 w-3.5 mr-1" />Gantt</TabsTrigger>
           </TabsList>
 

@@ -7,12 +7,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Plus, Trash2, FileDown, Receipt, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, FileDown, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { ExpedienteTab } from "@/components/ExpedienteTab";
 import { GastosTab } from "@/components/GastosTab";
-import { useProyectosConAlerta } from "@/components/PresupuestoAlerts";
 import { QuickGastoSheet } from "@/components/QuickGastoSheet";
 import { downloadOrShareReciboPDF } from "@/lib/generate-recibo-pdf";
 import { downloadOrShareReciboPersonalPDF } from "@/lib/generate-recibo-personal-pdf";
@@ -84,8 +83,6 @@ function ProyectoPage() {
       return data as Proyecto[];
     },
   });
-
-  const { data: proyectosConAlerta } = useProyectosConAlerta(obraId);
 
   async function cambiarEstado(id: string, estado: string) {
     const { error } = await supabase.from("proyectos").update({ estado }).eq("id", id);
@@ -205,17 +202,7 @@ function ProyectoPage() {
                       onClick={() => navigate({ to: "/cotizaciones/$id", params: { id: p.id } })}
                     >
                       <td className="px-4 py-3 font-mono text-xs">{p.folio}</td>
-                      <td className="px-4 py-3 font-medium">
-                        <span className="inline-flex items-center gap-2">
-                          {proyectosConAlerta?.has(p.id) && (
-                            <AlertTriangle
-                              className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400"
-                              aria-label="Alerta de presupuesto"
-                            />
-                          )}
-                          <span>{p.nombre_proyecto}</span>
-                        </span>
-                      </td>
+                      <td className="px-4 py-3 font-medium">{p.nombre_proyecto}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{currency(p.total_con_iva)}</td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>

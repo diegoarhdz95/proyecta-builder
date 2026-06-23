@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { Package, HardHat, Users, MoreHorizontal } from "lucide-react";
+import { PresupuestoAlertsInline } from "@/components/PresupuestoAlerts";
 
 function currency(n: number) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(Number(n) || 0);
@@ -96,6 +97,7 @@ export function CorteDePagosTab({ proyectoId }: { proyectoId: string }) {
 
   return (
     <div className="space-y-5">
+      <PresupuestoAlertsInline proyectoId={proyectoId} />
       <div className="rounded-lg border bg-card p-4">
         <div className="flex flex-wrap items-end gap-3">
           <div>
