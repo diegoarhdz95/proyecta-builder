@@ -8,6 +8,8 @@ import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { ExpedienteTab } from "@/components/ExpedienteTab";
+import { ResumenPagosObra } from "@/components/ResumenPagosObra";
+import { ResumenGastosObra } from "@/components/ResumenGastosObra";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +50,7 @@ function ProyectoPage() {
   const { obraId } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "expediente">("cotizaciones");
+  const [tab, setTab] = useState<"cotizaciones" | "pagos" | "gastos" | "desglose" | "expediente">("cotizaciones");
 
   const { data: obra } = useQuery({
     queryKey: ["obra", obraId],
@@ -184,6 +186,8 @@ function ProyectoPage() {
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList className="flex w-full justify-start overflow-x-auto md:w-auto md:justify-start">
             <TabsTrigger value="cotizaciones">Cotizaciones</TabsTrigger>
+            <TabsTrigger value="pagos">Pagos</TabsTrigger>
+            <TabsTrigger value="gastos">Gastos</TabsTrigger>
             <TabsTrigger value="desglose">Desglose</TabsTrigger>
             <TabsTrigger value="expediente">Expediente</TabsTrigger>
           </TabsList>
@@ -285,6 +289,13 @@ function ProyectoPage() {
             <DesgloseObra obraId={obraId} />
           </TabsContent>
 
+          <TabsContent value="pagos" className="mt-6">
+            <ResumenPagosObra obraId={obraId} />
+          </TabsContent>
+
+          <TabsContent value="gastos" className="mt-6">
+            <ResumenGastosObra obraId={obraId} />
+          </TabsContent>
 
           <TabsContent value="expediente" className="mt-6">
             <ExpedienteTab obraId={obraId} />
