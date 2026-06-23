@@ -1,23 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase, DESPACHO_ID, IVA_RATE, type Obra, type Proyecto } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Plus, Trash2, FileDown, Receipt } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { ExpedienteTab } from "@/components/ExpedienteTab";
-import { GastosTab } from "@/components/GastosTab";
-import { QuickGastoSheet } from "@/components/QuickGastoSheet";
-import { downloadOrShareReciboPDF } from "@/lib/generate-recibo-pdf";
-import { downloadOrShareReciboPersonalPDF } from "@/lib/generate-recibo-personal-pdf";
-import { getPublicSiteUrl } from "@/lib/public-site-url";
-import type { Personal, PersonalProyecto, PagoPersonal } from "@/lib/supabase";
-import { Link2, UserPlus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,8 +48,7 @@ function ProyectoPage() {
   const { obraId } = Route.useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "pagos" | "personal" | "gastos" | "expediente">("cotizaciones");
-  const [quickGastoOpen, setQuickGastoOpen] = useState(false);
+  const [tab, setTab] = useState<"cotizaciones" | "desglose" | "expediente">("cotizaciones");
 
   const { data: obra } = useQuery({
     queryKey: ["obra", obraId],
@@ -81,6 +70,32 @@ function ProyectoPage() {
         .order("folio", { ascending: false });
       if (error) throw error;
       return data as Proyecto[];
+    },
+  });
+
+  const cotIds = (cotizaciones ?? []).map((c) => c.id);
+
+  const { data: resumenFin } = useQuery({
+    queryKey: ["cotizacion_resumen_fin", obraId, cotIds.join(",")],
+    enabled: cotIds.length > 0,
+    queryFn: async () => {
+      const [{ data: pagos }, { data: gastos }, { data: pagosPers }] = await Promise.all([
+        supabase.from("pagos_cliente").select("proyecto_id, monto").in("proyecto_id", cotIds),
+        supabase.from("gastos_proyecto").select("proyecto_id, monto").in("proyecto_id", cotIds),
+        supabase.from("pagos_personal").select("proyecto_id, monto").in("proyecto_id", cotIds),
+      ]);
+      const cobrado = new Map<string, number>();
+      const gastado = new Map<string, number>();
+      (pagos ?? []).forEach((p: { proyecto_id: string; monto: number }) =>
+        cobrado.set(p.proyecto_id, (cobrado.get(p.proyecto_id) ?? 0) + Number(p.monto || 0)),
+      );
+      (gastos ?? []).forEach((g: { proyecto_id: string; monto: number }) =>
+        gastado.set(g.proyecto_id, (gastado.get(g.proyecto_id) ?? 0) + Number(g.monto || 0)),
+      );
+      (pagosPers ?? []).forEach((p: { proyecto_id: string; monto: number }) =>
+        gastado.set(p.proyecto_id, (gastado.get(p.proyecto_id) ?? 0) + Number(p.monto || 0)),
+      );
+      return { cobrado, gastado };
     },
   });
 
@@ -170,9 +185,6 @@ function ProyectoPage() {
           <TabsList className="flex w-full justify-start overflow-x-auto md:w-auto md:justify-start">
             <TabsTrigger value="cotizaciones">Cotizaciones</TabsTrigger>
             <TabsTrigger value="desglose">Desglose</TabsTrigger>
-            <TabsTrigger value="pagos">Pagos</TabsTrigger>
-            <TabsTrigger value="personal">Personal</TabsTrigger>
-            <TabsTrigger value="gastos">Gastos</TabsTrigger>
             <TabsTrigger value="expediente">Expediente</TabsTrigger>
           </TabsList>
 
@@ -181,21 +193,28 @@ function ProyectoPage() {
               <Button onClick={nuevaCotizacion}><Plus className="mr-2 h-4 w-4" />Nueva cotización</Button>
             </div>
             <div className="overflow-x-auto rounded-lg border bg-card">
-              <table className="w-full min-w-[560px] text-sm">
+              <table className="w-full min-w-[820px] text-sm">
                 <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3">Folio</th>
                     <th className="px-4 py-3">Nombre</th>
                     <th className="px-4 py-3 text-right">Total</th>
+                    <th className="px-4 py-3 text-right">Cobrado</th>
+                    <th className="px-4 py-3 text-right">Gastado</th>
+                    <th className="px-4 py-3 text-right">Saldo</th>
                     <th className="px-4 py-3">Estado</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {cotizaciones?.length === 0 && (
-                    <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">Sin cotizaciones aún</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">Sin cotizaciones aún</td></tr>
                   )}
-                  {cotizaciones?.map((p) => (
+                  {cotizaciones?.map((p) => {
+                    const cobrado = resumenFin?.cobrado.get(p.id) ?? 0;
+                    const gastado = resumenFin?.gastado.get(p.id) ?? 0;
+                    const saldo = cobrado - gastado;
+                    return (
                     <tr
                       key={p.id}
                       className="cursor-pointer border-t hover:bg-muted/30"
@@ -204,6 +223,9 @@ function ProyectoPage() {
                       <td className="px-4 py-3 font-mono text-xs">{p.folio}</td>
                       <td className="px-4 py-3 font-medium">{p.nombre_proyecto}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{currency(p.total_con_iva)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{currency(cobrado)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{currency(gastado)}</td>
+                      <td className={`px-4 py-3 text-right tabular-nums font-medium ${saldo < 0 ? "text-destructive" : ""}`}>{currency(saldo)}</td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -252,7 +274,8 @@ function ProyectoPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -262,17 +285,6 @@ function ProyectoPage() {
             <DesgloseObra obraId={obraId} />
           </TabsContent>
 
-          <TabsContent value="pagos" className="mt-6">
-            <PagosTab obraId={obraId} />
-          </TabsContent>
-
-          <TabsContent value="personal" className="mt-6">
-            <PersonalProyectoTab obraId={obraId} />
-          </TabsContent>
-
-          <TabsContent value="gastos" className="mt-6">
-            <GastosTab obraId={obraId} />
-          </TabsContent>
 
           <TabsContent value="expediente" className="mt-6">
             <ExpedienteTab obraId={obraId} />
@@ -280,15 +292,6 @@ function ProyectoPage() {
         </Tabs>
       </main>
 
-      <button
-        type="button"
-        aria-label="Registrar gasto rápido"
-        onClick={() => setQuickGastoOpen(true)}
-        className="fixed bottom-24 right-4 z-30 grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-xl md:hidden"
-      >
-        <Receipt className="h-6 w-6" />
-      </button>
-      <QuickGastoSheet open={quickGastoOpen} onOpenChange={setQuickGastoOpen} obraId={obraId} />
     </div>
   );
 }
@@ -443,720 +446,3 @@ function Row({ label, value, pct, muted }: { label: string; value: number; pct: 
   );
 }
 
-type Pago = {
-  id: string;
-  proyecto_id: string;
-  concepto: string;
-  monto: number;
-  fecha_pago: string;
-  metodo_pago: string | null;
-  notas: string | null;
-  numero_pago?: number | null;
-};
-
-function PagosTab({ obraId }: { obraId: string }) {
-  const qc = useQueryClient();
-  const [selectedId, setSelectedId] = useState<string>("");
-  const [form, setForm] = useState({
-    concepto: "",
-    monto: "",
-    fecha_pago: new Date().toISOString().slice(0, 10),
-    metodo_pago: "Transferencia",
-    notas: "",
-  });
-
-  const { data: proyectos } = useQuery({
-    queryKey: ["pagos_proyectos", obraId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("proyectos")
-        .select("id, folio, nombre_proyecto, total_con_iva, cliente_nombre")
-        .eq("obra_id", obraId)
-        .order("folio", { ascending: false });
-      if (error) throw error;
-      return data as Array<Pick<Proyecto, "id" | "folio" | "nombre_proyecto" | "total_con_iva" | "cliente_nombre">>;
-    },
-  });
-
-  const { data: despacho } = useQuery({
-    queryKey: ["despacho", DESPACHO_ID],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("despachos")
-        .select("nombre, logo_url")
-        .eq("id", DESPACHO_ID)
-        .single();
-      if (error) throw error;
-      return data as { nombre: string; logo_url: string | null };
-    },
-  });
-
-  const ids = (proyectos ?? []).map((p) => p.id);
-
-  useEffect(() => {
-    if (!selectedId && ids.length > 0) setSelectedId(ids[0]);
-  }, [ids, selectedId]);
-
-  const { data: pagos } = useQuery({
-    queryKey: ["pagos_cliente", obraId, ids.join(",")],
-    enabled: ids.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pagos_cliente")
-        .select("*")
-        .in("proyecto_id", ids)
-        .order("fecha_pago", { ascending: false });
-      if (error) throw error;
-      return data as Pago[];
-    },
-  });
-
-  const totalContratado = (proyectos ?? []).reduce((s, p) => s + Number(p.total_con_iva || 0), 0);
-  const totalPagado = (pagos ?? []).reduce((s, p) => s + Number(p.monto || 0), 0);
-  const saldo = totalContratado - totalPagado;
-  const pct = totalContratado > 0 ? (totalPagado / totalContratado) * 100 : 0;
-
-  const selectedProy = proyectos?.find((p) => p.id === selectedId);
-  const pagosSel = (pagos ?? []).filter((p) => p.proyecto_id === selectedId);
-  const totalSel = Number(selectedProy?.total_con_iva || 0);
-  const pagadoSel = pagosSel.reduce((s, p) => s + Number(p.monto || 0), 0);
-  const saldoSel = totalSel - pagadoSel;
-  const pctSel = totalSel > 0 ? (pagadoSel / totalSel) * 100 : 0;
-
-  async function registrar(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedId) return toast.error("Selecciona una cotización");
-    if (!form.concepto.trim()) return toast.error("Concepto requerido");
-    const monto = Number(form.monto);
-    if (!monto || monto <= 0) return toast.error("Monto inválido");
-    try {
-      const { error } = await supabase.from("pagos_cliente").insert({
-        proyecto_id: selectedId,
-        concepto: form.concepto.trim(),
-        monto,
-        fecha_pago: form.fecha_pago,
-        metodo_pago: form.metodo_pago || null,
-        notas: form.notas || null,
-      });
-      if (error) throw error;
-      toast.success("Pago registrado");
-      setForm({ ...form, concepto: "", monto: "", notas: "" });
-      qc.invalidateQueries({ queryKey: ["pagos_cliente", obraId] });
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  }
-
-  async function eliminar(id: string) {
-    if (!confirm("¿Eliminar este pago?")) return;
-    const { error } = await supabase.from("pagos_cliente").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Pago eliminado");
-    qc.invalidateQueries({ queryKey: ["pagos_cliente", obraId] });
-  }
-
-  async function generarRecibo(p: Pago) {
-    try {
-      const proy = proyectos?.find((x) => x.id === p.proyecto_id);
-      if (!proy) return toast.error("Cotización no encontrada");
-
-      // Asignar número de recibo consecutivo (por despacho) si aún no tiene
-      let numero = p.numero_pago ?? null;
-      if (!numero) {
-        const { data: maxRow, error: maxErr } = await supabase
-          .from("pagos_cliente")
-          .select("numero_pago, proyectos!inner(despacho_id)")
-          .eq("proyectos.despacho_id", DESPACHO_ID)
-          .not("numero_pago", "is", null)
-          .order("numero_pago", { ascending: false })
-          .limit(1);
-        if (maxErr) throw maxErr;
-        const last = (maxRow?.[0]?.numero_pago as number | null) ?? 0;
-        numero = last + 1;
-        const { error: upErr } = await supabase
-          .from("pagos_cliente")
-          .update({ numero_pago: numero })
-          .eq("id", p.id);
-        if (upErr) throw upErr;
-        qc.invalidateQueries({ queryKey: ["pagos_cliente", obraId] });
-      }
-
-      await downloadOrShareReciboPDF({
-        despacho: despacho ?? { nombre: "Grupo Proyecta", logo_url: null },
-        numeroRecibo: numero,
-        proyectoNombre: proy.nombre_proyecto,
-        folio: proy.folio,
-        clienteNombre: proy.cliente_nombre || "",
-        monto: Number(p.monto),
-        concepto: p.concepto,
-        fechaPago: p.fecha_pago,
-        metodoPago: p.metodo_pago,
-        notas: p.notas,
-      });
-      toast.success(`Recibo #${String(numero).padStart(5, "0")} generado`);
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  }
-
-  return (
-    <div className="space-y-6">
-      <section>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Resumen general del proyecto</h3>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Total contratado" value={totalContratado} />
-        <StatCard label="Total cobrado" value={totalPagado} />
-        <StatCard label="Saldo pendiente" value={saldo} />
-        <div className="rounded-lg border bg-card p-4">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">% cobrado</p>
-          <p className="mt-2 text-lg font-semibold tabular-nums">{pct.toFixed(1)}%</p>
-          <Progress value={Math.min(pct, 100)} className="mt-2" />
-        </div>
-      </div>
-      </section>
-
-      <section className="rounded-lg border bg-card p-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="flex-1">
-            <label className="text-xs uppercase tracking-wide text-muted-foreground">Cotización</label>
-            <select
-              className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
-            >
-              <option value="">— seleccionar —</option>
-              {proyectos?.map((p) => (
-                <option key={p.id} value={p.id}>{p.folio} · {p.nombre_proyecto}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {selectedProy && (
-          <>
-            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-              <StatCard label="Total cotización" value={totalSel} />
-              <StatCard label="Cobrado" value={pagadoSel} />
-              <StatCard label="Pendiente" value={saldoSel} />
-              <div className="rounded-lg border bg-card p-4">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">% cobrado</p>
-                <p className="mt-2 text-lg font-semibold tabular-nums">{pctSel.toFixed(1)}%</p>
-                <Progress value={Math.min(pctSel, 100)} className="mt-2" />
-              </div>
-            </div>
-
-            <div className="mt-5 overflow-hidden rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Fecha</th>
-              <th className="px-4 py-3">Concepto</th>
-              <th className="px-4 py-3 text-right">Monto</th>
-              <th className="px-4 py-3">Método</th>
-              <th className="px-4 py-3">Notas</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {pagosSel.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Sin pagos registrados</td></tr>
-            )}
-            {pagosSel.map((p) => (
-              <tr key={p.id} className="border-t">
-                <td className="px-4 py-2.5 tabular-nums">{p.fecha_pago}</td>
-                <td className="px-4 py-2.5">{p.concepto}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{currency(p.monto)}</td>
-                <td className="px-4 py-2.5">{p.metodo_pago ?? "—"}</td>
-                <td className="px-4 py-2.5 text-muted-foreground">{p.notas ?? "—"}</td>
-                <td className="px-4 py-2.5 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-2 text-xs"
-                      onClick={() => generarRecibo(p)}
-                      title="Generar recibo PDF"
-                    >
-                      <FileDown className="mr-1 h-3.5 w-3.5" />
-                      Generar recibo
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => eliminar(p.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-            </div>
-
-            <form onSubmit={registrar} className="mt-5 rounded-lg border p-5">
-              <h3 className="text-sm font-semibold">Registrar nuevo pago en {selectedProy.folio}</h3>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Concepto</label>
-            <Input
-              className="mt-1"
-              placeholder="Anticipo, Estimación 1…"
-              value={form.concepto}
-              onChange={(e) => setForm({ ...form, concepto: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Monto</label>
-            <Input
-              className="mt-1"
-              type="number"
-              step="0.01"
-              value={form.monto}
-              onChange={(e) => setForm({ ...form, monto: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Fecha</label>
-            <Input
-              className="mt-1"
-              type="date"
-              value={form.fecha_pago}
-              onChange={(e) => setForm({ ...form, fecha_pago: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Método de pago</label>
-            <Input
-              className="mt-1"
-              placeholder="Transferencia, Efectivo…"
-              value={form.metodo_pago}
-              onChange={(e) => setForm({ ...form, metodo_pago: e.target.value })}
-            />
-          </div>
-          <div className="md:col-span-2 lg:col-span-3">
-            <label className="text-xs text-muted-foreground">Notas</label>
-            <Textarea
-              className="mt-1"
-              rows={2}
-              value={form.notas}
-              onChange={(e) => setForm({ ...form, notas: e.target.value })}
-            />
-          </div>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <Button type="submit"><Plus className="mr-2 h-4 w-4" />Registrar pago</Button>
-        </div>
-      </form>
-          </>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border bg-card p-4">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 text-lg font-semibold tabular-nums">{currency(value)}</p>
-    </div>
-  );
-}
-
-function PersonalProyectoTab({ obraId }: { obraId: string }) {
-  const qc = useQueryClient();
-  const [selectedId, setSelectedId] = useState<string>("");
-  const [assignPersonalId, setAssignPersonalId] = useState<string>("");
-  const [assignActividad, setAssignActividad] = useState("");
-  const [assignMonto, setAssignMonto] = useState("");
-  const [payForm, setPayForm] = useState({
-    personal_id: "",
-    concepto: "",
-    monto: "",
-    fecha_pago: new Date().toISOString().slice(0, 10),
-    metodo_pago: "Efectivo",
-    notas: "",
-  });
-
-  const { data: proyectos } = useQuery({
-    queryKey: ["personal_tab_proys", obraId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("proyectos")
-        .select("id, folio, nombre_proyecto")
-        .eq("obra_id", obraId)
-        .order("folio", { ascending: false });
-      if (error) throw error;
-      return data as Array<Pick<Proyecto, "id" | "folio" | "nombre_proyecto">>;
-    },
-  });
-
-  const ids = (proyectos ?? []).map((p) => p.id);
-
-  useEffect(() => {
-    if (!selectedId && ids.length > 0) setSelectedId(ids[0]);
-  }, [ids, selectedId]);
-
-  const { data: despacho } = useQuery({
-    queryKey: ["despacho", DESPACHO_ID],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("despachos").select("nombre, logo_url").eq("id", DESPACHO_ID).single();
-      if (error) throw error;
-      return data as { nombre: string; logo_url: string | null };
-    },
-  });
-
-  const { data: personal } = useQuery({
-    queryKey: ["personal", DESPACHO_ID],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("personal").select("*").eq("despacho_id", DESPACHO_ID).order("nombre");
-      if (error) throw error;
-      return data as Personal[];
-    },
-  });
-
-  const { data: asignaciones } = useQuery({
-    queryKey: ["asignaciones_proy", selectedId],
-    enabled: !!selectedId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("personal_proyecto")
-        .select("*")
-        .eq("proyecto_id", selectedId);
-      if (error) throw error;
-      return data as PersonalProyecto[];
-    },
-  });
-
-  const { data: pagosPersonal } = useQuery({
-    queryKey: ["pagos_personal_proy", selectedId],
-    enabled: !!selectedId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pagos_personal")
-        .select("*")
-        .eq("proyecto_id", selectedId)
-        .order("fecha_pago", { ascending: false });
-      if (error) throw error;
-      return data as PagoPersonal[];
-    },
-  });
-
-  const personalById = new Map((personal ?? []).map((p) => [p.id, p]));
-  const pagadoByPersona = new Map<string, number>();
-  (pagosPersonal ?? []).forEach((p) => {
-    pagadoByPersona.set(p.personal_id, (pagadoByPersona.get(p.personal_id) ?? 0) + Number(p.monto || 0));
-  });
-
-  async function asignar() {
-    if (!selectedId) return toast.error("Selecciona una cotización");
-    if (!assignPersonalId) return toast.error("Selecciona una persona");
-    const { error } = await supabase.from("personal_proyecto").insert({
-      personal_id: assignPersonalId,
-      proyecto_id: selectedId,
-      actividad: assignActividad || null,
-      monto_acordado: Number(assignMonto) || 0,
-    });
-    if (error) return toast.error(error.message);
-    toast.success("Personal asignado");
-    setAssignPersonalId(""); setAssignActividad(""); setAssignMonto("");
-    qc.invalidateQueries({ queryKey: ["asignaciones_proy", selectedId] });
-  }
-
-  async function desasignar(id: string) {
-    if (!confirm("¿Quitar esta asignación?")) return;
-    const { error } = await supabase.from("personal_proyecto").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["asignaciones_proy", selectedId] });
-  }
-
-  async function registrarPago(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedId) return toast.error("Selecciona una cotización");
-    if (!payForm.personal_id) return toast.error("Selecciona a la persona");
-    if (!payForm.concepto.trim()) return toast.error("Concepto requerido");
-    const monto = Number(payForm.monto);
-    if (!monto || monto <= 0) return toast.error("Monto inválido");
-    const { error } = await supabase.from("pagos_personal").insert({
-      personal_id: payForm.personal_id,
-      proyecto_id: selectedId,
-      concepto: payForm.concepto.trim(),
-      monto,
-      fecha_pago: payForm.fecha_pago,
-      metodo_pago: payForm.metodo_pago || null,
-      notas: payForm.notas || null,
-    });
-    if (error) return toast.error(error.message);
-    toast.success("Pago registrado");
-    setPayForm({ ...payForm, concepto: "", monto: "", notas: "" });
-    qc.invalidateQueries({ queryKey: ["pagos_personal_proy", selectedId] });
-  }
-
-  async function eliminarPago(id: string) {
-    if (!confirm("¿Eliminar este pago?")) return;
-    const { error } = await supabase.from("pagos_personal").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ["pagos_personal_proy", selectedId] });
-  }
-
-  async function generarRecibo(p: PagoPersonal) {
-    try {
-      const persona = personalById.get(p.personal_id);
-      const proy = proyectos?.find((x) => x.id === p.proyecto_id);
-      if (!persona || !proy) return toast.error("Datos incompletos");
-
-      let numero = p.numero_recibo;
-      if (!numero) {
-        const { data: maxRow, error: maxErr } = await supabase
-          .from("pagos_personal")
-          .select("numero_recibo, personal!inner(despacho_id)")
-          .eq("personal.despacho_id", DESPACHO_ID)
-          .not("numero_recibo", "is", null)
-          .order("numero_recibo", { ascending: false })
-          .limit(1);
-        if (maxErr) throw maxErr;
-        const last = (maxRow?.[0]?.numero_recibo as number | null) ?? 0;
-        numero = last + 1;
-        const { error: upErr } = await supabase
-          .from("pagos_personal").update({ numero_recibo: numero }).eq("id", p.id);
-        if (upErr) throw upErr;
-        qc.invalidateQueries({ queryKey: ["pagos_personal_proy", selectedId] });
-      }
-
-      const aceptaUrl = `${getPublicSiteUrl()}/recibo/${p.acepta_token}`;
-
-      await downloadOrShareReciboPersonalPDF({
-        despacho: despacho ?? { nombre: "Grupo Proyecta", logo_url: null },
-        numeroRecibo: numero,
-        trabajador: { nombre: persona.nombre, categoria: persona.categoria, especialidad: persona.especialidad },
-        proyectoNombre: proy.nombre_proyecto,
-        folio: proy.folio,
-        actividad: p.concepto,
-        monto: Number(p.monto),
-        fechaPago: p.fecha_pago,
-        metodoPago: p.metodo_pago,
-        notas: p.notas,
-        aceptacion: { url: aceptaUrl, aceptadoAt: p.aceptado_at, aceptadoIp: p.aceptado_ip },
-      });
-      toast.success(`Recibo #${String(numero).padStart(5, "0")} generado`);
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  }
-
-  async function copiarLink(p: PagoPersonal) {
-    const url = `${getPublicSiteUrl()}/recibo/${p.acepta_token}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Enlace copiado");
-    } catch {
-      toast.error("No se pudo copiar");
-    }
-  }
-
-  const selectedProy = proyectos?.find((x) => x.id === selectedId);
-  const totalPagadoSel = (pagosPersonal ?? []).reduce((s, p) => s + Number(p.monto || 0), 0);
-  const totalAcordadoSel = (asignaciones ?? []).reduce((s, a) => s + Number(a.monto_acordado || 0), 0);
-
-  return (
-    <div className="space-y-6">
-      <section className="rounded-lg border bg-card p-5">
-        <div className="flex-1">
-          <label className="text-xs uppercase tracking-wide text-muted-foreground">Cotización</label>
-          <select
-            className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-            value={selectedId}
-            onChange={(e) => setSelectedId(e.target.value)}
-          >
-            <option value="">— seleccionar —</option>
-            {proyectos?.map((p) => (
-              <option key={p.id} value={p.id}>{p.folio} · {p.nombre_proyecto}</option>
-            ))}
-          </select>
-        </div>
-
-        {selectedProy && (
-          <>
-            <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
-              <StatCard label="Acordado a personal" value={totalAcordadoSel} />
-              <StatCard label="Pagado a personal" value={totalPagadoSel} />
-              <StatCard label="Saldo por pagar" value={totalAcordadoSel - totalPagadoSel} />
-            </div>
-
-            <div className="mt-6">
-              <h3 className="mb-3 text-sm font-semibold">Personal asignado</h3>
-              <div className="overflow-hidden rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-2">Nombre</th>
-                      <th className="px-3 py-2 w-28">Categoría</th>
-                      <th className="px-3 py-2">Actividad</th>
-                      <th className="px-3 py-2 text-right w-32">Acordado</th>
-                      <th className="px-3 py-2 text-right w-32">Pagado</th>
-                      <th className="px-3 py-2 text-right w-32">Saldo</th>
-                      <th className="w-10"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(asignaciones ?? []).length === 0 && (
-                      <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">Sin personal asignado</td></tr>
-                    )}
-                    {(asignaciones ?? []).map((a) => {
-                      const persona = personalById.get(a.personal_id);
-                      const pagado = pagadoByPersona.get(a.personal_id) ?? 0;
-                      return (
-                        <tr key={a.id} className="border-t">
-                          <td className="px-3 py-2 font-medium">{persona?.nombre ?? "—"}</td>
-                          <td className="px-3 py-2 text-xs capitalize text-muted-foreground">{persona?.categoria ?? "—"}</td>
-                          <td className="px-3 py-2 text-muted-foreground">{a.actividad ?? "—"}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{currency(a.monto_acordado)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{currency(pagado)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{currency(Number(a.monto_acordado) - pagado)}</td>
-                          <td className="px-2">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => desasignar(a.id)}>
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border border-dashed p-3">
-                <div className="flex-1 min-w-[180px]">
-                  <label className="text-xs text-muted-foreground">Asignar persona</label>
-                  <select
-                    className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                    value={assignPersonalId}
-                    onChange={(e) => setAssignPersonalId(e.target.value)}
-                  >
-                    <option value="">— elegir —</option>
-                    {(personal ?? []).map((p) => (
-                      <option key={p.id} value={p.id}>{p.nombre} ({p.categoria})</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex-1 min-w-[180px]">
-                  <label className="text-xs text-muted-foreground">Actividad</label>
-                  <Input className="mt-1" value={assignActividad} onChange={(e) => setAssignActividad(e.target.value)} placeholder="Castillos, muros…" />
-                </div>
-                <div className="w-32">
-                  <label className="text-xs text-muted-foreground">Monto acordado</label>
-                  <Input className="mt-1" type="number" step="0.01" value={assignMonto} onChange={(e) => setAssignMonto(e.target.value)} />
-                </div>
-                <Button onClick={asignar}>
-                  <UserPlus className="mr-2 h-4 w-4" />Asignar
-                </Button>
-                <Link to="/personal" className="ml-auto text-xs text-primary hover:underline">
-                  ¿Falta alguien? Crear en Personal →
-                </Link>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <h3 className="mb-3 text-sm font-semibold">Pagos registrados</h3>
-              <div className="overflow-hidden rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-2">Fecha</th>
-                      <th className="px-3 py-2">Persona</th>
-                      <th className="px-3 py-2">Concepto</th>
-                      <th className="px-3 py-2 text-right">Monto</th>
-                      <th className="px-3 py-2">Método</th>
-                      <th className="px-3 py-2">Estado</th>
-                      <th className="px-3 py-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(pagosPersonal ?? []).length === 0 && (
-                      <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">Sin pagos registrados</td></tr>
-                    )}
-                    {(pagosPersonal ?? []).map((p) => {
-                      const persona = personalById.get(p.personal_id);
-                      return (
-                        <tr key={p.id} className="border-t">
-                          <td className="px-3 py-2 tabular-nums">{p.fecha_pago}</td>
-                          <td className="px-3 py-2">{persona?.nombre ?? "—"}</td>
-                          <td className="px-3 py-2">{p.concepto}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{currency(p.monto)}</td>
-                          <td className="px-3 py-2 text-muted-foreground">{p.metodo_pago ?? "—"}</td>
-                          <td className="px-3 py-2">
-                            {p.aceptado_at ? (
-                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">Aceptado</span>
-                            ) : (
-                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">Pendiente</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-2">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => generarRecibo(p)} title="Generar recibo PDF">
-                                <FileDown className="mr-1 h-3.5 w-3.5" />PDF
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copiarLink(p)} title="Copiar link de aceptación">
-                                <Link2 className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => eliminarPago(p.id)} title="Eliminar">
-                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <form onSubmit={registrarPago} className="mt-4 rounded-lg border p-4">
-                <h4 className="text-sm font-semibold">Registrar nuevo pago</h4>
-                <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground">Persona</label>
-                    <select
-                      className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                      value={payForm.personal_id}
-                      onChange={(e) => setPayForm({ ...payForm, personal_id: e.target.value })}
-                    >
-                      <option value="">— elegir —</option>
-                      {(asignaciones ?? []).map((a) => {
-                        const persona = personalById.get(a.personal_id);
-                        return persona ? <option key={a.id} value={persona.id}>{persona.nombre}</option> : null;
-                      })}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Concepto / actividad</label>
-                    <Input className="mt-1" value={payForm.concepto} onChange={(e) => setPayForm({ ...payForm, concepto: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Monto</label>
-                    <Input className="mt-1" type="number" step="0.01" value={payForm.monto} onChange={(e) => setPayForm({ ...payForm, monto: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Fecha</label>
-                    <Input className="mt-1" type="date" value={payForm.fecha_pago} onChange={(e) => setPayForm({ ...payForm, fecha_pago: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Método de pago</label>
-                    <Input className="mt-1" value={payForm.metodo_pago} onChange={(e) => setPayForm({ ...payForm, metodo_pago: e.target.value })} />
-                  </div>
-                  <div className="md:col-span-2 lg:col-span-3">
-                    <label className="text-xs text-muted-foreground">Notas</label>
-                    <Textarea className="mt-1" rows={2} value={payForm.notas} onChange={(e) => setPayForm({ ...payForm, notas: e.target.value })} />
-                  </div>
-                </div>
-                <div className="mt-3 flex justify-end">
-                  <Button type="submit"><Plus className="mr-2 h-4 w-4" />Registrar pago</Button>
-                </div>
-              </form>
-            </div>
-          </>
-        )}
-      </section>
-    </div>
-  );
-}

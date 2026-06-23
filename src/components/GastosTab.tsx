@@ -16,7 +16,7 @@ const CAT_META: Record<GastoCategoria, { label: string; cls: string }> = {
   otros: { label: "Otros", cls: "bg-amber-100 text-amber-700" },
 };
 
-export function GastosTab({ obraId }: { obraId: string }) {
+export function GastosTab({ obraId, proyectoId }: { obraId?: string; proyectoId?: string }) {
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string>("");
   const [form, setForm] = useState({
@@ -30,18 +30,19 @@ export function GastosTab({ obraId }: { obraId: string }) {
   });
 
   const { data: cotizaciones } = useQuery({
-    queryKey: ["cotizaciones_obra_gastos", obraId],
+    queryKey: ["cotizaciones_obra_gastos", obraId ?? ""],
+    enabled: !!obraId && !proyectoId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("proyectos").select("id, folio, nombre_proyecto")
-        .eq("despacho_id", DESPACHO_ID).eq("obra_id", obraId)
+        .eq("despacho_id", DESPACHO_ID).eq("obra_id", obraId!)
         .order("folio", { ascending: false });
       if (error) throw error;
       return data as Pick<Proyecto, "id" | "folio" | "nombre_proyecto">[];
     },
   });
 
-  const cotizacionId = selectedId || cotizaciones?.[0]?.id || "";
+  const cotizacionId = proyectoId || selectedId || cotizaciones?.[0]?.id || "";
 
   const { data: gastos } = useQuery({
     queryKey: ["gastos_proyecto", cotizacionId],
@@ -77,6 +78,7 @@ export function GastosTab({ obraId }: { obraId: string }) {
     setForm({ ...form, concepto: "", proveedor: "", monto: "", notas: "" });
     qc.invalidateQueries({ queryKey: ["gastos_proyecto", cotizacionId] });
     qc.invalidateQueries({ queryKey: ["corte_gastos", cotizacionId] });
+    qc.invalidateQueries({ queryKey: ["cotizacion_resumen_fin"] });
   }
 
   async function eliminar(id: string) {
@@ -86,13 +88,14 @@ export function GastosTab({ obraId }: { obraId: string }) {
     toast.success("Gasto eliminado");
     qc.invalidateQueries({ queryKey: ["gastos_proyecto", cotizacionId] });
     qc.invalidateQueries({ queryKey: ["corte_gastos", cotizacionId] });
+    qc.invalidateQueries({ queryKey: ["cotizacion_resumen_fin"] });
   }
 
   const total = (gastos ?? []).reduce((s, g) => s + Number(g.monto || 0), 0);
 
   return (
     <div className="space-y-5">
-      {(cotizaciones?.length ?? 0) > 1 && (
+      {!proyectoId && (cotizaciones?.length ?? 0) > 1 && (
         <div>
           <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Cotización</label>
           <select
