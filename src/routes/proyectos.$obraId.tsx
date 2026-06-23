@@ -197,27 +197,20 @@ function ProyectoPage() {
               <Button onClick={nuevaCotizacion}><Plus className="mr-2 h-4 w-4" />Nueva cotización</Button>
             </div>
             <div className="overflow-x-auto rounded-lg border bg-card">
-              <table className="w-full min-w-[820px] text-sm">
+              <table className="w-full min-w-[520px] text-sm">
                 <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3">Folio</th>
                     <th className="px-4 py-3">Nombre</th>
-                    <th className="px-4 py-3 text-right">Total</th>
-                    <th className="px-4 py-3 text-right">Cobrado</th>
-                    <th className="px-4 py-3 text-right">Gastado</th>
-                    <th className="px-4 py-3 text-right">Saldo</th>
                     <th className="px-4 py-3">Estado</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {cotizaciones?.length === 0 && (
-                    <tr><td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">Sin cotizaciones aún</td></tr>
+                    <tr><td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">Sin cotizaciones aún</td></tr>
                   )}
                   {cotizaciones?.map((p) => {
-                    const cobrado = resumenFin?.cobrado.get(p.id) ?? 0;
-                    const gastado = resumenFin?.gastado.get(p.id) ?? 0;
-                    const saldo = cobrado - gastado;
                     return (
                     <tr
                       key={p.id}
@@ -226,10 +219,6 @@ function ProyectoPage() {
                     >
                       <td className="px-4 py-3 font-mono text-xs">{p.folio}</td>
                       <td className="px-4 py-3 font-medium">{p.nombre_proyecto}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{currency(p.total_con_iva)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{currency(cobrado)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{currency(gastado)}</td>
-                      <td className={`px-4 py-3 text-right tabular-nums font-medium ${saldo < 0 ? "text-destructive" : ""}`}>{currency(saldo)}</td>
                       <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
