@@ -84,8 +84,6 @@ export function PresupuestoAlerts({ obraId }: { obraId: string }) {
     },
   });
 
-  // eslint-disable-next-line no-console
-  console.log("[PresupuestoAlerts] data", data);
   if (!data) return null;
   const cats: Cat[] = ["materiales", "mano_obra", "contratistas", "otros"];
   const alerts = data.flatMap((b) =>
