@@ -16,6 +16,7 @@ import { PresupuestoAlerts } from "@/components/PresupuestoAlerts";
 import { QuickGastoSheet } from "@/components/QuickGastoSheet";
 import { downloadOrShareReciboPDF } from "@/lib/generate-recibo-pdf";
 import { downloadOrShareReciboPersonalPDF } from "@/lib/generate-recibo-personal-pdf";
+import { getPublicSiteUrl } from "@/lib/public-site-url";
 import type { Personal, PersonalProyecto, PagoPersonal } from "@/lib/supabase";
 import { Link2, UserPlus } from "lucide-react";
 import {
@@ -926,8 +927,7 @@ function PersonalProyectoTab({ obraId }: { obraId: string }) {
         qc.invalidateQueries({ queryKey: ["pagos_personal_proy", selectedId] });
       }
 
-      const origin = typeof window !== "undefined" ? window.location.origin : "";
-      const aceptaUrl = `${origin}/recibo/${p.acepta_token}`;
+      const aceptaUrl = `${getPublicSiteUrl()}/recibo/${p.acepta_token}`;
 
       await downloadOrShareReciboPersonalPDF({
         despacho: despacho ?? { nombre: "Grupo Proyecta", logo_url: null },
@@ -949,8 +949,7 @@ function PersonalProyectoTab({ obraId }: { obraId: string }) {
   }
 
   async function copiarLink(p: PagoPersonal) {
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const url = `${origin}/recibo/${p.acepta_token}`;
+    const url = `${getPublicSiteUrl()}/recibo/${p.acepta_token}`;
     try {
       await navigator.clipboard.writeText(url);
       toast.success("Enlace copiado");
