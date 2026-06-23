@@ -24,186 +24,84 @@ type Desglose = {
   total_indirectos: number;
 };
 
-type Bucket = {
-  label: string;
-  presupuesto: Record<Cat, number>;
-  real: Record<Cat, number>;
+export type PresupuestoAlerta = {
+  cat: Cat;
+  base: number;
+  gastado: number;
+  pct: number;
+  rebasado: boolean;
 };
 
-async function fetchBucketsByProyecto(proyectoIds: string[]): Promise<Bucket[]> {
-  if (proyectoIds.length === 0) return [];
-  const [{ data: desglose }, { data: gastos }, { data: pagosPersonal }] = await Promise.all([
-    supabase.from("desglose_financiero_proyecto").select("*").in("proyecto_id", proyectoIds),
-    supabase.from("gastos_proyecto").select("categoria, monto, proyecto_id").in("proyecto_id", proyectoIds),
-    supabase
-      .from("pagos_personal")
-      .select("monto, proyecto_id, personal:personal_id(categoria)")
-      .in("proyecto_id", proyectoIds),
-  ]);
-  const d = (desglose ?? []) as Desglose[];
-  const byProj = new Map<string, Bucket>();
-  const ensure = (pid: string): Bucket => {
-    let b = byProj.get(pid);
-    if (!b) {
-      b = {
-        label: pid,
-        presupuesto: { materiales: 0, mano_obra: 0, contratistas: 0, otros: 0 },
-        real: { materiales: 0, mano_obra: 0, contratistas: 0, otros: 0 },
-      };
-      byProj.set(pid, b);
-    }
-    return b;
-  };
-  d.forEach((r) => {
-    const b = ensure(r.proyecto_id);
-    b.label = r.folio ? `${r.folio}` : r.nombre_proyecto ?? r.proyecto_id;
-    b.presupuesto.materiales += Number(r.total_materiales || 0);
-    b.presupuesto.mano_obra += Number(r.total_mano_obra || 0);
-    b.presupuesto.contratistas += Number(r.total_indirectos || 0);
-    b.presupuesto.otros += Number(r.total_herramienta || 0);
-  });
-  (gastos ?? []).forEach((g: { categoria: string; monto: number; proyecto_id: string }) => {
-    const b = ensure(g.proyecto_id);
-    if (g.categoria === "materiales") b.real.materiales += Number(g.monto || 0);
-    else if (g.categoria === "mano_obra") b.real.mano_obra += Number(g.monto || 0);
-    else if (g.categoria === "contratistas") b.real.contratistas += Number(g.monto || 0);
-    else b.real.otros += Number(g.monto || 0);
-  });
-  (pagosPersonal ?? []).forEach((p: { monto: number; proyecto_id: string; personal: unknown }) => {
-    const b = ensure(p.proyecto_id);
-    const per = Array.isArray(p.personal) ? p.personal[0] : p.personal;
-    const c = (per as { categoria?: string } | null)?.categoria;
-    if (c === "contratista") b.real.contratistas += Number(p.monto || 0);
-    else b.real.mano_obra += Number(p.monto || 0);
-  });
-  // ensure entries exist for all requested ids
-  proyectoIds.forEach((pid) => ensure(pid));
-  return Array.from(byProj.entries()).map(([pid, b]) => ({ ...b, label: b.label === pid ? b.label : b.label }));
-}
-
-function computeAlerts(buckets: Bucket[]) {
-  const cats: Cat[] = ["materiales", "mano_obra", "contratistas", "otros"];
-  return buckets.flatMap((b) =>
-    cats
-      .map((c) => {
-        const base = b.presupuesto[c];
-        const gastado = b.real[c];
-        if (base <= 0) return null;
-        const pct = (gastado / base) * 100;
-        if (pct < 80) return null;
-        return { proyecto: b.label, cat: c, base, gastado, pct, rebasado: pct >= 100 };
-      })
-      .filter(Boolean) as { proyecto: string; cat: Cat; base: number; gastado: number; pct: number; rebasado: boolean }[],
-  );
-}
-
-/** Returns set of proyecto IDs (for a given obra) that have any category at ≥80%. */
-export function useProyectosConAlerta(obraId: string) {
+/** Returns the list of presupuesto alerts (>=80%) for a single proyecto. */
+export function useProyectoAlertas(proyectoId: string) {
   return useQuery({
-    queryKey: ["presupuesto_alerts_ids", obraId],
-    queryFn: async () => {
-      const { data: proys, error: pErr } = await supabase
-        .from("proyectos").select("id").eq("obra_id", obraId);
-      if (pErr) throw pErr;
-      const ids = (proys ?? []).map((p) => p.id);
-      if (ids.length === 0) return new Set<string>();
+    queryKey: ["presupuesto_alerts_proyecto", proyectoId],
+    queryFn: async (): Promise<PresupuestoAlerta[]> => {
       const [{ data: desglose }, { data: gastos }, { data: pagosPersonal }] = await Promise.all([
-        supabase.from("desglose_financiero_proyecto").select("*").in("proyecto_id", ids),
-        supabase.from("gastos_proyecto").select("categoria, monto, proyecto_id").in("proyecto_id", ids),
+        supabase.from("desglose_financiero_proyecto").select("*").eq("proyecto_id", proyectoId),
+        supabase.from("gastos_proyecto").select("categoria, monto").eq("proyecto_id", proyectoId),
         supabase
           .from("pagos_personal")
-          .select("monto, proyecto_id, personal:personal_id(categoria)")
-          .in("proyecto_id", ids),
+          .select("monto, personal:personal_id(categoria)")
+          .eq("proyecto_id", proyectoId),
       ]);
-      const d = (desglose ?? []) as Desglose[];
-      type Bucket = { label: string; presupuesto: Record<Cat, number>; real: Record<Cat, number> };
-      const byProj = new Map<string, Bucket>();
-      const ensure = (pid: string): Bucket => {
-        let b = byProj.get(pid);
-        if (!b) {
-          b = {
-            label: pid,
-            presupuesto: { materiales: 0, mano_obra: 0, contratistas: 0, otros: 0 },
-            real: { materiales: 0, mano_obra: 0, contratistas: 0, otros: 0 },
-          };
-          byProj.set(pid, b);
-        }
-        return b;
-      };
-      d.forEach((r) => {
-        const b = ensure(r.proyecto_id);
-         b.label = r.proyecto_id;
-        b.presupuesto.materiales += Number(r.total_materiales || 0);
-        b.presupuesto.mano_obra += Number(r.total_mano_obra || 0);
-        b.presupuesto.contratistas += Number(r.total_indirectos || 0);
-        b.presupuesto.otros += Number(r.total_herramienta || 0);
+      const presupuesto: Record<Cat, number> = { materiales: 0, mano_obra: 0, contratistas: 0, otros: 0 };
+      const real: Record<Cat, number> = { materiales: 0, mano_obra: 0, contratistas: 0, otros: 0 };
+      (desglose ?? []).forEach((r: Desglose) => {
+        presupuesto.materiales += Number(r.total_materiales || 0);
+        presupuesto.mano_obra += Number(r.total_mano_obra || 0);
+        presupuesto.contratistas += Number(r.total_indirectos || 0);
+        presupuesto.otros += Number(r.total_herramienta || 0);
       });
-      (gastos ?? []).forEach((g: { categoria: string; monto: number; proyecto_id: string }) => {
-        const b = ensure(g.proyecto_id);
-        if (g.categoria === "materiales") b.real.materiales += Number(g.monto || 0);
-        else if (g.categoria === "mano_obra") b.real.mano_obra += Number(g.monto || 0);
-        else if (g.categoria === "contratistas") b.real.contratistas += Number(g.monto || 0);
-        else b.real.otros += Number(g.monto || 0);
+      (gastos ?? []).forEach((g: { categoria: string; monto: number }) => {
+        if (g.categoria === "materiales") real.materiales += Number(g.monto || 0);
+        else if (g.categoria === "mano_obra") real.mano_obra += Number(g.monto || 0);
+        else if (g.categoria === "contratistas") real.contratistas += Number(g.monto || 0);
+        else real.otros += Number(g.monto || 0);
       });
-      (pagosPersonal ?? []).forEach((p: { monto: number; proyecto_id: string; personal: unknown }) => {
-        const b = ensure(p.proyecto_id);
+      (pagosPersonal ?? []).forEach((p: { monto: number; personal: unknown }) => {
         const per = Array.isArray(p.personal) ? p.personal[0] : p.personal;
         const c = (per as { categoria?: string } | null)?.categoria;
-        if (c === "contratista") b.real.contratistas += Number(p.monto || 0);
-        else b.real.mano_obra += Number(p.monto || 0);
+        if (c === "contratista") real.contratistas += Number(p.monto || 0);
+        else real.mano_obra += Number(p.monto || 0);
       });
-      const out = new Set<string>();
-      byProj.forEach((b, pid) => {
-        const cats: Cat[] = ["materiales", "mano_obra", "contratistas", "otros"];
-        for (const c of cats) {
-          const base = b.presupuesto[c];
-          if (base <= 0) continue;
-          if ((b.real[c] / base) * 100 >= 80) {
-            out.add(pid);
-            break;
-          }
-        }
-      });
+      const cats: Cat[] = ["materiales", "mano_obra", "contratistas", "otros"];
+      const out: PresupuestoAlerta[] = [];
+      for (const c of cats) {
+        const base = presupuesto[c];
+        if (base <= 0) continue;
+        const pct = (real[c] / base) * 100;
+        if (pct >= 80) out.push({ cat: c, base, gastado: real[c], pct, rebasado: pct >= 100 });
+      }
       return out;
     },
   });
 }
 
-export function PresupuestoAlerts({ proyectoId }: { proyectoId: string }) {
-  const { data } = useQuery({
-    queryKey: ["presupuesto_alerts_proyecto", proyectoId],
-    queryFn: () => fetchBucketsByProyecto([proyectoId]),
-  });
-
-  if (!data) return null;
-  const alerts = computeAlerts(data);
-  if (alerts.length === 0) return null;
-
+/** Compact inline alert list shown inside the Corte de Pagos tab. */
+export function PresupuestoAlertsInline({ proyectoId }: { proyectoId: string }) {
+  const { data: alerts } = useProyectoAlertas(proyectoId);
+  if (!alerts || alerts.length === 0) return null;
   return (
-    <div className="space-y-2">
+    <div className="flex flex-wrap gap-2">
       {alerts.map((a) => {
-        const restante = a.base - a.gastado;
         const Icon = a.rebasado ? AlertOctagon : AlertTriangle;
         const cls = a.rebasado
           ? "border-destructive/40 bg-destructive/10 text-destructive"
           : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200";
         return (
-          <div key={`${a.cat}`} role="alert" className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${cls}`}>
-            <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold">
-                {a.rebasado
-                  ? `${LABEL[a.cat]}: presupuesto rebasado (${a.pct.toFixed(1)}%)`
-                  : `${LABEL[a.cat]}: ${a.pct.toFixed(1)}% del presupuesto utilizado`}
-              </p>
-              <p className="text-xs opacity-90">
-                Gastado {currency(a.gastado)} de {currency(a.base)} presupuestado ·{" "}
-                {a.rebasado
-                  ? `excedido por ${currency(Math.abs(restante))}`
-                  : `restan ${currency(restante)}`}
-              </p>
-            </div>
-          </div>
+          <span
+            key={a.cat}
+            role="alert"
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${cls}`}
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0" />
+            <span className="font-medium">{LABEL[a.cat]}</span>
+            <span className="opacity-80">
+              · {a.pct.toFixed(0)}% ({currency(a.gastado)} / {currency(a.base)})
+              {a.rebasado ? " · rebasado" : ""}
+            </span>
+          </span>
         );
       })}
     </div>
