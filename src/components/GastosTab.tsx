@@ -148,7 +148,48 @@ export function GastosTab({ obraId }: { obraId: string }) {
         </div>
       </form>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
+      {/* Mobile card list */}
+      <div className="space-y-2 md:hidden">
+        {(gastos ?? []).length === 0 && (
+          <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+            Sin gastos registrados
+          </div>
+        )}
+        {gastos?.map((g) => {
+          const meta = CAT_META[g.categoria];
+          const Icon = g.categoria === "materiales" ? Package : MoreHorizontal;
+          return (
+            <div key={g.id} className="rounded-lg border bg-card p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${meta.cls}`}>
+                      <Icon className="h-3 w-3" />{meta.label}
+                    </span>
+                    <span className="text-[11px] tabular-nums text-muted-foreground">{g.fecha_pago}</span>
+                  </div>
+                  <p className="mt-1.5 truncate text-sm font-medium">{g.concepto}</p>
+                  {g.proveedor && <p className="truncate text-xs text-muted-foreground">{g.proveedor}</p>}
+                </div>
+                <div className="text-right">
+                  <p className="text-base font-semibold tabular-nums">{currency(Number(g.monto))}</p>
+                  <Button size="icon" variant="ghost" className="mt-1 h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => eliminar(g.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {(gastos ?? []).length > 0 && (
+          <div className="rounded-lg border bg-muted/30 p-3 text-right font-semibold">
+            Total <span className="tabular-nums">{currency(total)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>

@@ -19,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MobileNav } from "@/components/MobileNav";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "Proyectos · Grupo Proyecta" }] }),
@@ -108,15 +109,18 @@ function ProyectosList() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight">{DESPACHO_NOMBRE}</h1>
-            <p className="text-xs text-muted-foreground">Proyectos</p>
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="flex min-w-0 items-center gap-2">
+            <MobileNav />
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-semibold tracking-tight sm:text-lg">{DESPACHO_NOMBRE}</h1>
+              <p className="hidden text-xs text-muted-foreground sm:block">Proyectos</p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" className="hidden md:inline-flex">
                   <Wrench className="mr-2 h-4 w-4" />
                   Herramientas
                 </Button>
@@ -139,13 +143,16 @@ function ProyectosList() {
               </DropdownMenuContent>
             </DropdownMenu>
             <Link to="/proyectos/nuevo">
-              <Button><Plus className="mr-2 h-4 w-4" />Nuevo proyecto</Button>
+              <Button className="h-10 px-3 sm:h-9 sm:px-4">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Nuevo proyecto</span>
+              </Button>
             </Link>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-10">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-2xl font-semibold tracking-tight">Proyectos</h2>
           <div className="relative w-full sm:w-80">
