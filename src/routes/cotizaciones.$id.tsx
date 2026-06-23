@@ -10,6 +10,7 @@ import { CorteDePagosTab } from "@/components/CorteDePagosTab";
 import { generateCotizacionPDF } from "@/lib/generate-pdf";
 import { toast } from "sonner";
 import { EstadoBadge } from "@/lib/estado-cotizacion";
+import { PresupuestoAlerts } from "@/components/PresupuestoAlerts";
 
 export const Route = createFileRoute("/cotizaciones/$id")({
   head: () => ({ meta: [{ title: "Cotización · Grupo Proyecta" }] }),
@@ -139,6 +140,7 @@ function CotizacionDashboard() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-6 space-y-5">
+        <PresupuestoAlerts proyectoId={id} />
         {/* Resumen compacto */}
         <section className="rounded-lg border bg-card p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
