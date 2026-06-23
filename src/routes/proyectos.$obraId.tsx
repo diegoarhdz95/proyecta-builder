@@ -7,12 +7,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Plus, Trash2, FileDown } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, FileDown, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { ExpedienteTab } from "@/components/ExpedienteTab";
 import { GastosTab } from "@/components/GastosTab";
 import { PresupuestoAlerts } from "@/components/PresupuestoAlerts";
+import { QuickGastoSheet } from "@/components/QuickGastoSheet";
 import { downloadOrShareReciboPDF } from "@/lib/generate-recibo-pdf";
 import { downloadOrShareReciboPersonalPDF } from "@/lib/generate-recibo-personal-pdf";
 import type { Personal, PersonalProyecto, PagoPersonal } from "@/lib/supabase";
@@ -58,6 +59,7 @@ function ProyectoPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"cotizaciones" | "desglose" | "pagos" | "personal" | "gastos" | "expediente">("cotizaciones");
+  const [quickGastoOpen, setQuickGastoOpen] = useState(false);
 
   const { data: obra } = useQuery({
     queryKey: ["obra", obraId],
@@ -147,30 +149,30 @@ function ProyectoPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="mx-auto max-w-6xl px-6 py-4">
+        <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
             <Link to="/" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /></Link>
             <nav className="flex items-center gap-1 text-xs text-muted-foreground">
               <Link to="/" className="hover:text-foreground">Proyectos</Link>
               <span>›</span>
-              <span className="text-foreground">{obra?.nombre ?? "…"}</span>
+              <span className="truncate text-foreground">{obra?.nombre ?? "…"}</span>
             </nav>
           </div>
           <div className="mt-3">
-            <h1 className="text-xl font-semibold tracking-tight">{obra?.nombre}</h1>
+            <h1 className="text-lg font-semibold tracking-tight sm:text-xl">{obra?.nombre}</h1>
             <p className="text-sm text-muted-foreground">{obra?.cliente_nombre}</p>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-6">
+      <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
         <div className="mb-4">
           <PresupuestoAlerts obraId={obraId} />
         </div>
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-          <TabsList>
+          <TabsList className="flex w-full justify-start overflow-x-auto md:w-auto md:justify-start">
             <TabsTrigger value="cotizaciones">Cotizaciones</TabsTrigger>
-            <TabsTrigger value="desglose">Desglose financiero</TabsTrigger>
+            <TabsTrigger value="desglose">Desglose</TabsTrigger>
             <TabsTrigger value="pagos">Pagos</TabsTrigger>
             <TabsTrigger value="personal">Personal</TabsTrigger>
             <TabsTrigger value="gastos">Gastos</TabsTrigger>
@@ -280,6 +282,16 @@ function ProyectoPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      <button
+        type="button"
+        aria-label="Registrar gasto rápido"
+        onClick={() => setQuickGastoOpen(true)}
+        className="fixed bottom-24 right-4 z-30 grid h-14 w-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-xl md:hidden"
+      >
+        <Receipt className="h-6 w-6" />
+      </button>
+      <QuickGastoSheet open={quickGastoOpen} onOpenChange={setQuickGastoOpen} obraId={obraId} />
     </div>
   );
 }
