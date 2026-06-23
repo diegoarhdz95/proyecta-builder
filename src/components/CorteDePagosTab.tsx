@@ -134,7 +134,37 @@ export function CorteDePagosTab({ proyectoId }: { proyectoId: string }) {
         })}
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
+      {/* Mobile cards */}
+      <div className="space-y-2 md:hidden">
+        {rows.length === 0 && (
+          <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+            Sin movimientos en este periodo
+          </div>
+        )}
+        {rows.map((r, i) => {
+          const meta = CAT_META[r.categoria];
+          return (
+            <div key={i} className="rounded-lg border bg-card p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${meta.cls}`}>
+                      {meta.label}
+                    </span>
+                    <span className="text-[11px] tabular-nums text-muted-foreground">{r.fecha}</span>
+                  </div>
+                  <p className="mt-1.5 truncate text-sm font-medium">{r.concepto}</p>
+                  {r.detalle && <p className="truncate text-xs text-muted-foreground">{r.detalle}</p>}
+                </div>
+                <p className="text-base font-semibold tabular-nums">{currency(r.monto)}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
