@@ -5,7 +5,8 @@ import { supabase, DESPACHO_ID, DESPACHO_NOMBRE, type Material } from "@/lib/sup
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Search, Trash2, Save } from "lucide-react";
+import { ArrowLeft, Plus, Search, Trash2, Save, Upload } from "lucide-react";
+import { ImportMaterialesDialog } from "@/components/ImportMaterialesDialog";
 
 export const Route = createFileRoute("/materiales")({
   head: () => ({ meta: [{ title: "Materiales · Grupo Proyecta" }] }),
@@ -23,6 +24,7 @@ function MaterialesPage() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<string>("");
   const [draft, setDraft] = useState<Partial<Material> | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: materiales, isLoading } = useQuery({
     queryKey: ["materiales", DESPACHO_ID],
@@ -107,13 +109,18 @@ function MaterialesPage() {
               </p>
             </div>
           </div>
-          <Button
-            onClick={() =>
-              setDraft({ nombre: "", categoria: "", unidad: "pieza", precio_unitario: 0 })
-            }
-          >
-            <Plus className="mr-2 h-4 w-4" />Nuevo material
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />Importar precios
+            </Button>
+            <Button
+              onClick={() =>
+                setDraft({ nombre: "", categoria: "", unidad: "pieza", precio_unitario: 0 })
+              }
+            >
+              <Plus className="mr-2 h-4 w-4" />Nuevo material
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -151,6 +158,7 @@ function MaterialesPage() {
                 <th className="px-3 py-2 w-40">Categoría</th>
                 <th className="px-3 py-2 w-28">Unidad</th>
                 <th className="px-3 py-2 w-36 text-right">Precio unitario</th>
+                <th className="px-3 py-2 w-32">Actualizado</th>
                 <th className="w-10"></th>
               </tr>
             </thead>
@@ -194,6 +202,7 @@ function MaterialesPage() {
                       className="h-8 text-right"
                     />
                   </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">—</td>
                   <td className="px-2 py-2">
                     <div className="flex gap-1">
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={createDraft}>
@@ -212,10 +221,10 @@ function MaterialesPage() {
                 </tr>
               )}
               {isLoading && (
-                <tr><td colSpan={5} className="px-3 py-10 text-center text-muted-foreground">Cargando…</td></tr>
+                <tr><td colSpan={6} className="px-3 py-10 text-center text-muted-foreground">Cargando…</td></tr>
               )}
               {!isLoading && filtered.length === 0 && !draft && (
-                <tr><td colSpan={5} className="px-3 py-10 text-center text-muted-foreground">
+                <tr><td colSpan={6} className="px-3 py-10 text-center text-muted-foreground">
                   Sin materiales. Crea el primero con “Nuevo material”.
                 </td></tr>
               )}
@@ -258,6 +267,15 @@ function MaterialesPage() {
                       className="h-8 text-right tabular-nums border-transparent shadow-none focus-visible:border-input"
                     />
                   </td>
+                  <td className="px-3 py-1.5 text-xs text-muted-foreground tabular-nums">
+                    {m.updated_at
+                      ? new Date(m.updated_at).toLocaleDateString("es-MX", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "—"}
+                  </td>
                   <td className="px-2">
                     <Button
                       size="icon"
@@ -277,6 +295,13 @@ function MaterialesPage() {
         <p className="mt-3 text-[11px] text-muted-foreground">
           Edita un campo y presiona Tab o sal de la celda para guardar automáticamente. Estos materiales se usan en el desglose APU de cada concepto de cotización.
         </p>
+
+        <ImportMaterialesDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          existing={materiales ?? []}
+          onImported={() => qc.invalidateQueries({ queryKey: ["materiales", DESPACHO_ID] })}
+        />
       </main>
     </div>
   );
