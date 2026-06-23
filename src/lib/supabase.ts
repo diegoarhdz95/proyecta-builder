@@ -26,6 +26,7 @@ export type Proyecto = {
   estado: "borrador" | "en_revision" | "enviada" | "aceptada" | "aprobada" | "rechazada";
   tiempo_ejecucion_texto?: string | null;
   tiempo_ejecucion_incluir?: boolean | null;
+  created_at?: string;
 };
 
 export type TipoProyecto = {
