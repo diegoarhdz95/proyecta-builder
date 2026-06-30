@@ -295,8 +295,8 @@ function Catalogo() {
               onDragEnd={() => { setDragId(null); setOverId(null); }}
               onDragOver={() => setOverId(p.id)}
               onDrop={() => { if (dragId) handleReorder(dragId, p.id); setDragId(null); setOverId(null); }}
-              onRename={(nombre) => handleRenamePartida(p.id, nombre)}
-              onDelete={() => requestDeletePartida(p)}
+              onRename={async (nombre) => { await handleRenamePartida(p.id, nombre); }}
+              onDelete={async () => { await requestDeletePartida(p); }}
               onEdit={(c) => { setIsNew(false); setEditing({
                 id: c.id,
                 partida_id: c.partida_id,
