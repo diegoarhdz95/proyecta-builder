@@ -104,6 +104,7 @@ function Catalogo() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ partida: Partida; count: number } | null>(null);
+  const [confirmDeleteConcepto, setConfirmDeleteConcepto] = useState<ConceptoFull | null>(null);
 
   const { data: partidas, isLoading: loadingP } = useQuery({
     queryKey: ["partidas", DESPACHO_ID],
@@ -202,6 +203,14 @@ function Catalogo() {
     setConfirmDelete(null);
     qc.invalidateQueries({ queryKey: ["partidas", DESPACHO_ID] });
     qc.invalidateQueries({ queryKey: ["catalogo-conceptos"] });
+  }
+
+  async function doDeleteConcepto(concepto: ConceptoFull) {
+    const { error } = await supabase.from("conceptos").delete().eq("id", concepto.id);
+    if (error) return toast.error(error.message);
+    toast.success("Concepto eliminado");
+    setConfirmDeleteConcepto(null);
+    qc.invalidateQueries({ queryKey: ["catalogo-conceptos", concepto.partida_id] });
   }
 
   async function handleSave() {
@@ -323,6 +332,7 @@ function Catalogo() {
                 factor_utilidad: Number(c.factor_utilidad) || 0,
               }); }}
               onNew={() => { setIsNew(true); setEditing(emptyForm(p.id)); }}
+              onDeleteConcepto={(c) => setConfirmDeleteConcepto(c)}
             />
           ))}
         </div>
@@ -343,6 +353,28 @@ function Catalogo() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDelete(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={() => confirmDelete && doDeletePartida(confirmDelete.partida.id)}>
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmDeleteConcepto} onOpenChange={(o) => !o && setConfirmDeleteConcepto(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar concepto</DialogTitle>
+          </DialogHeader>
+          {confirmDeleteConcepto && (
+            <p className="text-sm text-muted-foreground">
+              Vas a eliminar el concepto{" "}
+              <span className="font-mono text-foreground">{confirmDeleteConcepto.clave}</span>{" "}
+              <span className="font-medium text-foreground">{confirmDeleteConcepto.descripcion}</span>.
+              Esta acción no se puede deshacer. ¿Continuar?
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteConcepto(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => confirmDeleteConcepto && doDeleteConcepto(confirmDeleteConcepto)}>
               Eliminar
             </Button>
           </DialogFooter>
@@ -375,7 +407,7 @@ function Catalogo() {
 function PartidaRow({
   partida, expanded, onToggle, onEdit, onNew,
   isDragOver, onDragStart, onDragEnd, onDragOver, onDrop,
-  onRename, onDelete,
+  onRename, onDelete, onDeleteConcepto,
 }: {
   partida: Partida;
   expanded: boolean;
@@ -389,6 +421,7 @@ function PartidaRow({
   onDrop: () => void;
   onRename: (nombre: string) => void | Promise<void>;
   onDelete: () => void | Promise<void>;
+  onDeleteConcepto: (c: ConceptoFull) => void;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [nombre, setNombre] = useState(partida.nombre);
@@ -491,9 +524,14 @@ function PartidaRow({
                     <td className="px-2 py-2 text-muted-foreground">{c.unidad}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{currency(Number(c.precio_unitario))}</td>
                     <td className="px-2 py-2 text-right">
-                      <Button size="sm" variant="ghost" onClick={() => onEdit(c)}>
-                        <Pencil className="h-3 w-3" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => onEdit(c)} title="Editar">
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => onDeleteConcepto(c)} title="Eliminar" className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
