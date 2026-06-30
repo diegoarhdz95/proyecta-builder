@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronDown, ChevronRight, GripVertical, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, GripVertical, Pencil, Plus, Trash2, Check, X } from "lucide-react";
 
 export const Route = createFileRoute("/catalogo")({
   head: () => ({ meta: [{ title: "Catálogo · Grupo Proyecta" }] }),
@@ -102,6 +102,7 @@ function Catalogo() {
   const [savingPartida, setSavingPartida] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ partida: Partida; count: number } | null>(null);
 
   const { data: partidas, isLoading: loadingP } = useQuery({
     queryKey: ["partidas", DESPACHO_ID],
@@ -169,6 +170,38 @@ function Catalogo() {
       toast.error(err.message);
       qc.invalidateQueries({ queryKey: ["partidas", DESPACHO_ID] });
     }
+  }
+
+  async function handleRenamePartida(partidaId: string, nombre: string) {
+    const nuevo = nombre.trim();
+    if (!nuevo) return;
+    const { error } = await supabase.from("partidas").update({ nombre: nuevo }).eq("id", partidaId);
+    if (error) return toast.error(error.message);
+    toast.success("Partida actualizada");
+    qc.invalidateQueries({ queryKey: ["partidas", DESPACHO_ID] });
+  }
+
+  async function requestDeletePartida(partida: Partida) {
+    const { count, error } = await supabase
+      .from("conceptos")
+      .select("id", { count: "exact", head: true })
+      .eq("partida_id", partida.id);
+    if (error) return toast.error(error.message);
+    const n = count ?? 0;
+    if (n === 0) {
+      await doDeletePartida(partida.id);
+    } else {
+      setConfirmDelete({ partida, count: n });
+    }
+  }
+
+  async function doDeletePartida(partidaId: string) {
+    const { error } = await supabase.from("partidas").delete().eq("id", partidaId);
+    if (error) return toast.error(error.message);
+    toast.success("Partida eliminada");
+    setConfirmDelete(null);
+    qc.invalidateQueries({ queryKey: ["partidas", DESPACHO_ID] });
+    qc.invalidateQueries({ queryKey: ["catalogo-conceptos"] });
   }
 
   async function handleSave() {
@@ -262,6 +295,8 @@ function Catalogo() {
               onDragEnd={() => { setDragId(null); setOverId(null); }}
               onDragOver={() => setOverId(p.id)}
               onDrop={() => { if (dragId) handleReorder(dragId, p.id); setDragId(null); setOverId(null); }}
+              onRename={(nombre) => handleRenamePartida(p.id, nombre)}
+              onDelete={() => requestDeletePartida(p)}
               onEdit={(c) => { setIsNew(false); setEditing({
                 id: c.id,
                 partida_id: c.partida_id,
@@ -281,6 +316,27 @@ function Catalogo() {
           ))}
         </div>
       </main>
+
+      <Dialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar partida</DialogTitle>
+          </DialogHeader>
+          {confirmDelete && (
+            <p className="text-sm text-muted-foreground">
+              La partida <span className="font-medium text-foreground">{confirmDelete.partida.nombre}</span> contiene{" "}
+              <span className="font-medium text-foreground">{confirmDelete.count}</span> concepto
+              {confirmDelete.count === 1 ? "" : "s"}. Esta acción eliminará también esos conceptos. ¿Continuar?
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => confirmDelete && doDeletePartida(confirmDelete.partida.id)}>
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
