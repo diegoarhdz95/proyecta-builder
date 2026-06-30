@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronDown, ChevronRight, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, GripVertical, Pencil, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/catalogo")({
   head: () => ({ meta: [{ title: "Catálogo · Grupo Proyecta" }] }),
@@ -97,6 +97,11 @@ function Catalogo() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<FormState | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const [creatingPartida, setCreatingPartida] = useState(false);
+  const [newPartidaName, setNewPartidaName] = useState("");
+  const [savingPartida, setSavingPartida] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
   const { data: partidas, isLoading: loadingP } = useQuery({
     queryKey: ["partidas", DESPACHO_ID],
@@ -118,6 +123,52 @@ function Catalogo() {
       else n.add(pid);
       return n;
     });
+  }
+
+  async function handleCreatePartida() {
+    const nombre = newPartidaName.trim();
+    if (!nombre) return;
+    setSavingPartida(true);
+    const claveBase = nombre
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 20) || "PART";
+    const maxOrden = (partidas ?? []).reduce((m, p) => Math.max(m, p.orden ?? 0), 0);
+    const { error } = await supabase.from("partidas").insert({
+      despacho_id: DESPACHO_ID,
+      clave: claveBase,
+      nombre,
+      orden: maxOrden + 1,
+    });
+    setSavingPartida(false);
+    if (error) return toast.error(error.message);
+    toast.success("Partida creada");
+    setNewPartidaName("");
+    setCreatingPartida(false);
+    qc.invalidateQueries({ queryKey: ["partidas", DESPACHO_ID] });
+  }
+
+  async function handleReorder(sourceId: string, targetId: string) {
+    if (!partidas || sourceId === targetId) return;
+    const list = [...partidas];
+    const from = list.findIndex((p) => p.id === sourceId);
+    const to = list.findIndex((p) => p.id === targetId);
+    if (from < 0 || to < 0) return;
+    const [moved] = list.splice(from, 1);
+    list.splice(to, 0, moved);
+    qc.setQueryData(["partidas", DESPACHO_ID], list.map((p, i) => ({ ...p, orden: i + 1 })));
+    const updates = list.map((p, i) =>
+      supabase.from("partidas").update({ orden: i + 1 }).eq("id", p.id),
+    );
+    const results = await Promise.all(updates);
+    const err = results.find((r) => r.error)?.error;
+    if (err) {
+      toast.error(err.message);
+      qc.invalidateQueries({ queryKey: ["partidas", DESPACHO_ID] });
+    }
   }
 
   async function handleSave() {
@@ -165,13 +216,39 @@ function Catalogo() {
               <p className="text-xs text-muted-foreground">{DESPACHO_NOMBRE} · Partidas y conceptos</p>
             </div>
           </div>
-          <Button onClick={() => { setIsNew(true); setEditing(emptyForm(partidas?.[0]?.id ?? "")); }}>
-            <Plus className="mr-2 h-4 w-4" />Nuevo concepto
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setCreatingPartida((v) => !v)}>
+              <Plus className="mr-1 h-3 w-3" />Nueva partida
+            </Button>
+            <Button onClick={() => { setIsNew(true); setEditing(emptyForm(partidas?.[0]?.id ?? "")); }}>
+              <Plus className="mr-2 h-4 w-4" />Nuevo concepto
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-10">
+        {creatingPartida && (
+          <div className="mb-3 flex items-center gap-2 rounded-md border bg-card p-3">
+            <Input
+              autoFocus
+              placeholder="Nombre de la partida (ej. Preliminares)"
+              value={newPartidaName}
+              onChange={(e) => setNewPartidaName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); handleCreatePartida(); }
+                if (e.key === "Escape") { setCreatingPartida(false); setNewPartidaName(""); }
+              }}
+              disabled={savingPartida}
+            />
+            <Button size="sm" onClick={handleCreatePartida} disabled={savingPartida || !newPartidaName.trim()}>
+              Guardar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setCreatingPartida(false); setNewPartidaName(""); }}>
+              Cancelar
+            </Button>
+          </div>
+        )}
         <div className="overflow-hidden rounded-lg border bg-card">
           {loadingP && <div className="p-6 text-center text-muted-foreground text-sm">Cargando...</div>}
           {partidas?.map((p) => (
@@ -180,6 +257,11 @@ function Catalogo() {
               partida={p}
               expanded={expanded.has(p.id)}
               onToggle={() => toggle(p.id)}
+              isDragOver={overId === p.id && dragId !== p.id}
+              onDragStart={() => setDragId(p.id)}
+              onDragEnd={() => { setDragId(null); setOverId(null); }}
+              onDragOver={() => setOverId(p.id)}
+              onDrop={() => { if (dragId) handleReorder(dragId, p.id); setDragId(null); setOverId(null); }}
               onEdit={(c) => { setIsNew(false); setEditing({
                 id: c.id,
                 partida_id: c.partida_id,
