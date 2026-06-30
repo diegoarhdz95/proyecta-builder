@@ -307,12 +307,18 @@ function Catalogo() {
 
 function PartidaRow({
   partida, expanded, onToggle, onEdit, onNew,
+  isDragOver, onDragStart, onDragEnd, onDragOver, onDrop,
 }: {
   partida: Partida;
   expanded: boolean;
   onToggle: () => void;
   onEdit: (c: ConceptoFull) => void;
   onNew: () => void;
+  isDragOver: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onDragOver: () => void;
+  onDrop: () => void;
 }) {
   const { data: conceptos, isLoading } = useQuery({
     queryKey: ["catalogo-conceptos", partida.id],
@@ -329,12 +335,20 @@ function PartidaRow({
   });
 
   return (
-    <div className="border-b last:border-b-0">
+    <div
+      className={`border-b last:border-b-0 ${isDragOver ? "bg-primary/5 outline outline-2 outline-primary/40" : ""}`}
+      draggable
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; onDragOver(); }}
+      onDrop={(e) => { e.preventDefault(); onDrop(); }}
+    >
       <button
         onClick={onToggle}
         className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/30"
       >
         <div className="flex items-center gap-2">
+          <GripVertical className="h-4 w-4 text-muted-foreground/60 cursor-grab" />
           {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           <span className="font-mono text-xs text-muted-foreground">{partida.clave}</span>
           <span className="font-medium">{partida.nombre}</span>
