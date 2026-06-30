@@ -407,7 +407,7 @@ function Catalogo() {
 function PartidaRow({
   partida, expanded, onToggle, onEdit, onNew,
   isDragOver, onDragStart, onDragEnd, onDragOver, onDrop,
-  onRename, onDelete,
+  onRename, onDelete, onDeleteConcepto,
 }: {
   partida: Partida;
   expanded: boolean;
@@ -421,6 +421,7 @@ function PartidaRow({
   onDrop: () => void;
   onRename: (nombre: string) => void | Promise<void>;
   onDelete: () => void | Promise<void>;
+  onDeleteConcepto: (c: ConceptoFull) => void;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [nombre, setNombre] = useState(partida.nombre);
@@ -523,9 +524,14 @@ function PartidaRow({
                     <td className="px-2 py-2 text-muted-foreground">{c.unidad}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{currency(Number(c.precio_unitario))}</td>
                     <td className="px-2 py-2 text-right">
-                      <Button size="sm" variant="ghost" onClick={() => onEdit(c)}>
-                        <Pencil className="h-3 w-3" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => onEdit(c)} title="Editar">
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => onDeleteConcepto(c)} title="Eliminar" className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
