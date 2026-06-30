@@ -364,6 +364,7 @@ function Catalogo() {
 function PartidaRow({
   partida, expanded, onToggle, onEdit, onNew,
   isDragOver, onDragStart, onDragEnd, onDragOver, onDrop,
+  onRename, onDelete,
 }: {
   partida: Partida;
   expanded: boolean;
@@ -375,7 +376,13 @@ function PartidaRow({
   onDragEnd: () => void;
   onDragOver: () => void;
   onDrop: () => void;
+  onRename: (nombre: string) => void | Promise<void>;
+  onDelete: () => void | Promise<void>;
 }) {
+  const [renaming, setRenaming] = useState(false);
+  const [nombre, setNombre] = useState(partida.nombre);
+  useEffect(() => { setNombre(partida.nombre); }, [partida.nombre]);
+
   const { data: conceptos, isLoading } = useQuery({
     queryKey: ["catalogo-conceptos", partida.id],
     enabled: expanded,
@@ -393,23 +400,56 @@ function PartidaRow({
   return (
     <div
       className={`border-b last:border-b-0 ${isDragOver ? "bg-primary/5 outline outline-2 outline-primary/40" : ""}`}
-      draggable
+      draggable={!renaming}
       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
       onDragEnd={onDragEnd}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; onDragOver(); }}
       onDrop={(e) => { e.preventDefault(); onDrop(); }}
     >
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/30"
-      >
-        <div className="flex items-center gap-2">
-          <GripVertical className="h-4 w-4 text-muted-foreground/60 cursor-grab" />
-          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-          <span className="font-mono text-xs text-muted-foreground">{partida.clave}</span>
-          <span className="font-medium">{partida.nombre}</span>
+      <div className="flex w-full items-center justify-between gap-2 px-4 py-3 hover:bg-muted/30">
+        <button onClick={onToggle} className="flex flex-1 items-center gap-2 text-left min-w-0">
+          <GripVertical className="h-4 w-4 text-muted-foreground/60 cursor-grab shrink-0" />
+          {expanded ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+          <span className="font-mono text-xs text-muted-foreground shrink-0">{partida.clave}</span>
+          {renaming ? (
+            <Input
+              autoFocus
+              value={nombre}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setNombre(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") { e.preventDefault(); onRename(nombre); setRenaming(false); }
+                if (e.key === "Escape") { setNombre(partida.nombre); setRenaming(false); }
+              }}
+              className="h-7 max-w-xs"
+            />
+          ) : (
+            <span className="font-medium truncate">{partida.nombre}</span>
+          )}
+        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {renaming ? (
+            <>
+              <Button size="sm" variant="ghost" onClick={() => { onRename(nombre); setRenaming(false); }}>
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setNombre(partida.nombre); setRenaming(false); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button size="sm" variant="ghost" onClick={() => setRenaming(true)} title="Renombrar">
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onDelete} title="Eliminar" className="text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
-      </button>
+      </div>
       {expanded && (
         <div className="bg-muted/20 px-4 py-3">
           <div className="mb-3 flex justify-end">
