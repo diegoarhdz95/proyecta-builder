@@ -99,6 +99,7 @@ function Catalogo() {
   const [isNew, setIsNew] = useState(false);
   const [creatingPartida, setCreatingPartida] = useState(false);
   const [newPartidaName, setNewPartidaName] = useState("");
+  const [newPartidaClave, setNewPartidaClave] = useState("");
   const [savingPartida, setSavingPartida] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -128,15 +129,13 @@ function Catalogo() {
 
   async function handleCreatePartida() {
     const nombre = newPartidaName.trim();
-    if (!nombre) return;
+    const claveInput = newPartidaClave.trim();
+    if (!nombre || !claveInput) {
+      toast.error("Clave y nombre son requeridos");
+      return;
+    }
     setSavingPartida(true);
-    const claveBase = nombre
-      .toUpperCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^A-Z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 20) || "PART";
+    const claveBase = claveInput.toUpperCase();
     const maxOrden = (partidas ?? []).reduce((m, p) => Math.max(m, p.orden ?? 0), 0);
     const { error } = await supabase.from("partidas").insert({
       despacho_id: DESPACHO_ID,
@@ -148,6 +147,7 @@ function Catalogo() {
     if (error) return toast.error(error.message);
     toast.success("Partida creada");
     setNewPartidaName("");
+    setNewPartidaClave("");
     setCreatingPartida(false);
     qc.invalidateQueries({ queryKey: ["partidas", DESPACHO_ID] });
   }
@@ -265,19 +265,30 @@ function Catalogo() {
           <div className="mb-3 flex items-center gap-2 rounded-md border bg-card p-3">
             <Input
               autoFocus
+              placeholder="Clave (ej. PRE)"
+              value={newPartidaClave}
+              onChange={(e) => setNewPartidaClave(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); handleCreatePartida(); }
+                if (e.key === "Escape") { setCreatingPartida(false); setNewPartidaName(""); setNewPartidaClave(""); }
+              }}
+              disabled={savingPartida}
+              className="max-w-[140px]"
+            />
+            <Input
               placeholder="Nombre de la partida (ej. Preliminares)"
               value={newPartidaName}
               onChange={(e) => setNewPartidaName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") { e.preventDefault(); handleCreatePartida(); }
-                if (e.key === "Escape") { setCreatingPartida(false); setNewPartidaName(""); }
+                if (e.key === "Escape") { setCreatingPartida(false); setNewPartidaName(""); setNewPartidaClave(""); }
               }}
               disabled={savingPartida}
             />
-            <Button size="sm" onClick={handleCreatePartida} disabled={savingPartida || !newPartidaName.trim()}>
+            <Button size="sm" onClick={handleCreatePartida} disabled={savingPartida || !newPartidaName.trim() || !newPartidaClave.trim()}>
               Guardar
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setCreatingPartida(false); setNewPartidaName(""); }}>
+            <Button size="sm" variant="ghost" onClick={() => { setCreatingPartida(false); setNewPartidaName(""); setNewPartidaClave(""); }}>
               Cancelar
             </Button>
           </div>
