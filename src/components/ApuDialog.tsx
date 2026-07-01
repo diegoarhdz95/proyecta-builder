@@ -182,7 +182,12 @@ export function ApuDialog({
             </div>
           </div>
 
-          {loading ? (
+          {item.es_subcontrato ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+              Este concepto está marcado como <strong>Subcontrato</strong>. El costo se toma
+              directamente del P.U. capturado; no aplica desglose de materiales.
+            </div>
+          ) : loading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Cargando…</p>
           ) : materiales.length === 0 ? (
             <div className="rounded-md border border-dashed p-6 text-center text-sm">
