@@ -62,6 +62,7 @@ export type Concepto = {
   descripcion: string;
   unidad: string;
   precio_unitario: number;
+  es_subcontrato?: boolean;
 };
 
 export type ProyectoConcepto = {
