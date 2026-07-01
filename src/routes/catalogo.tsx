@@ -606,6 +606,18 @@ function ConceptoForm({
         <Label>Unidad</Label>
         <Input value={value.unidad} onChange={(e) => set("unidad", e.target.value)} />
       </div>
+      <div className="col-span-2 flex items-center gap-3 rounded-md border bg-muted/30 px-3 py-2">
+        <input
+          id="es_subcontrato"
+          type="checkbox"
+          checked={!!value.es_subcontrato}
+          onChange={(e) => set("es_subcontrato", e.target.checked)}
+          className="h-4 w-4"
+        />
+        <Label htmlFor="es_subcontrato" className="cursor-pointer text-sm font-normal">
+          🤝 Es subcontrato — el P.U. se clasifica como Subcontrato (ejecutado por un tercero)
+        </Label>
+      </div>
       <div className="col-span-2">
         <Label>Descripción</Label>
         <Textarea value={value.descripcion} onChange={(e) => set("descripcion", e.target.value)} />
@@ -614,6 +626,23 @@ function ConceptoForm({
         <Label>Especificaciones</Label>
         <Textarea value={value.especificaciones} onChange={(e) => set("especificaciones", e.target.value)} />
       </div>
+      {value.es_subcontrato && (
+        <div className="col-span-2">
+          <Label>Precio unitario (subcontrato)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            value={value.costo_materiales}
+            onChange={num("costo_materiales")}
+            placeholder="Monto acordado con el subcontratista"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Al ser subcontrato no se desglosan materiales / mano de obra / herramienta. Los factores siguen aplicando sobre este monto.
+          </p>
+        </div>
+      )}
+      {!value.es_subcontrato && (
+        <>
       <div>
         <Label>Costo materiales</Label>
         <Input type="number" step="0.01" value={value.costo_materiales} onChange={num("costo_materiales")} />
@@ -626,6 +655,8 @@ function ConceptoForm({
         <Label>Costo herramienta</Label>
         <Input type="number" step="0.01" value={value.costo_herramienta} onChange={num("costo_herramienta")} />
       </div>
+        </>
+      )}
       <div>
         <Label>Factor desperdicio</Label>
         <Input type="number" step="0.01" value={value.factor_desperdicio} onChange={num("factor_desperdicio")} />
