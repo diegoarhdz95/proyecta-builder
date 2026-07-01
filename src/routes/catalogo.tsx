@@ -29,6 +29,7 @@ type ConceptoFull = {
   factor_indirectos: number;
   factor_utilidad: number;
   precio_unitario: number;
+  es_subcontrato?: boolean;
 };
 
 function currency(n: number) {
@@ -76,6 +77,7 @@ type FormState = {
   factor_desperdicio: number;
   factor_indirectos: number;
   factor_utilidad: number;
+  es_subcontrato: boolean;
 };
 
 const emptyForm = (partida_id = ""): FormState => ({
@@ -90,6 +92,7 @@ const emptyForm = (partida_id = ""): FormState => ({
   factor_desperdicio: 0,
   factor_indirectos: 0,
   factor_utilidad: 0,
+  es_subcontrato: false,
 });
 
 function Catalogo() {
@@ -227,6 +230,7 @@ function Catalogo() {
       factor_desperdicio: Number(editing.factor_desperdicio) || 0,
       factor_indirectos: Number(editing.factor_indirectos) || 0,
       factor_utilidad: Number(editing.factor_utilidad) || 0,
+      es_subcontrato: !!editing.es_subcontrato,
     };
     if (!payload.partida_id || !payload.descripcion) {
       toast.error("Partida y descripción son requeridos");
@@ -330,6 +334,7 @@ function Catalogo() {
                 factor_desperdicio: Number(c.factor_desperdicio) || 0,
                 factor_indirectos: Number(c.factor_indirectos) || 0,
                 factor_utilidad: Number(c.factor_utilidad) || 0,
+                es_subcontrato: !!c.es_subcontrato,
               }); }}
               onNew={() => { setIsNew(true); setEditing(emptyForm(p.id)); }}
               onDeleteConcepto={(c) => setConfirmDeleteConcepto(c)}
