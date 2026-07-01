@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { ArrowLeft, Calculator, Clock, Download, FileText, PieChart, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Calculator, Clock, Download, FileText, Handshake, PieChart, Plus, Trash2 } from "lucide-react";
 import { generateCotizacionPDF } from "@/lib/generate-pdf";
 import { ApuDialog } from "@/components/ApuDialog";
 
@@ -247,6 +247,20 @@ function Editor() {
     await recalcularTotales();
   }
 
+  async function toggleSubcontrato(item: ProyectoConcepto) {
+    const next = !item.es_subcontrato;
+    const { error } = await supabase
+      .from("proyecto_conceptos")
+      .update({ es_subcontrato: next })
+      .eq("id", item.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    qc.invalidateQueries({ queryKey: ["proyecto_conceptos", id] });
+    toast.success(next ? "Marcado como subcontrato" : "Subcontrato desactivado");
+  }
+
   async function handleGeneratePDF() {
     if (!proyecto) return;
     try {
@@ -382,7 +396,16 @@ function Editor() {
                 })
                 .map((it) => (
                 <tr key={it.id} className="border-t">
-                  <td className="px-3 py-2">{it.descripcion}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span>{it.descripcion}</span>
+                      {it.es_subcontrato && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                          <Handshake className="h-3 w-3" />Subcontrato
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-muted-foreground">{it.unidad}</td>
                   <td className="px-3 py-2">
                     <div className="relative">
@@ -411,6 +434,17 @@ function Editor() {
                   <td className="px-2">
                     <div className="flex items-center justify-end gap-0.5">
                       {it.unidad !== "%" && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => toggleSubcontrato(it)}
+                          className={`h-7 w-7 ${it.es_subcontrato ? "text-amber-600" : "text-muted-foreground hover:text-amber-600"}`}
+                          title={it.es_subcontrato ? "Quitar marca de subcontrato" : "Marcar como subcontrato"}
+                        >
+                          <Handshake className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {it.unidad !== "%" && !it.es_subcontrato && (
                         <Button
                           size="icon"
                           variant="ghost"
