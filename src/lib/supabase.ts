@@ -74,6 +74,7 @@ export type ProyectoConcepto = {
   unidad: string;
   precio_unitario_final: number;
   subtotal: number;
+  es_subcontrato?: boolean;
 };
 
 export type Material = {

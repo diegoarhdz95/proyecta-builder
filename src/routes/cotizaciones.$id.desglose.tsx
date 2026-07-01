@@ -33,6 +33,7 @@ const COLORS = {
   materiales: "#2563eb",
   mano_obra: "#16a34a",
   herramienta: "#eab308",
+  subcontrato: "#d97706",
   indirectos: "#ea580c",
   utilidad: "#7c3aed",
 };
@@ -53,6 +54,23 @@ function Desglose() {
     },
   });
 
+  const { data: subcontrato } = useQuery({
+    queryKey: ["desglose_subcontrato", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("proyecto_conceptos")
+        .select("cantidad, precio_unitario_final, subtotal, es_subcontrato")
+        .eq("proyecto_id", id)
+        .eq("es_subcontrato", true);
+      if (error) throw error;
+      return (data ?? []).reduce(
+        (s, r) => s + Number(r.subtotal || Number(r.cantidad) * Number(r.precio_unitario_final) || 0),
+        0,
+      );
+    },
+  });
+  const totalSubcontrato = Number(subcontrato || 0);
+
   const d = data;
   const subtotal = Number(d?.subtotal_sin_iva || 0);
   const pct = (n: number) => (subtotal > 0 ? (Number(n) / subtotal) * 100 : 0);
@@ -62,9 +80,10 @@ function Desglose() {
         { name: "Materiales", value: Number(d.total_materiales), color: COLORS.materiales },
         { name: "Mano de obra", value: Number(d.total_mano_obra), color: COLORS.mano_obra },
         { name: "Herramienta", value: Number(d.total_herramienta), color: COLORS.herramienta },
+        { name: "Subcontrato", value: totalSubcontrato, color: COLORS.subcontrato },
         { name: "Indirectos", value: Number(d.total_indirectos), color: COLORS.indirectos },
         { name: "Utilidad", value: Number(d.total_utilidad), color: COLORS.utilidad },
-      ]
+      ].filter((e) => e.value > 0)
     : [];
 
   return (
@@ -95,6 +114,7 @@ function Desglose() {
               <SummaryCard label="Materiales" value={d.total_materiales} dotColor={COLORS.materiales} />
               <SummaryCard label="Mano de obra" value={d.total_mano_obra} dotColor={COLORS.mano_obra} />
               <SummaryCard label="Herramienta" value={d.total_herramienta} dotColor={COLORS.herramienta} />
+              <SummaryCard label="Subcontrato" value={totalSubcontrato} dotColor={COLORS.subcontrato} />
               <SummaryCard label="Indirectos" value={d.total_indirectos} dotColor={COLORS.indirectos} />
               <SummaryCard label="Tu utilidad" value={d.total_utilidad} dotColor={COLORS.utilidad} />
               <SummaryCard label="Total con IVA" value={d.total_con_iva} highlight />
@@ -144,6 +164,7 @@ function Desglose() {
                   <Tr label="Materiales" value={d.total_materiales} pct={pct(d.total_materiales)} />
                   <Tr label="Mano de obra" value={d.total_mano_obra} pct={pct(d.total_mano_obra)} />
                   <Tr label="Herramienta" value={d.total_herramienta} pct={pct(d.total_herramienta)} />
+                  <Tr label="Subcontrato" value={totalSubcontrato} pct={pct(totalSubcontrato)} />
                   <Tr label="Costo directo" value={d.total_costo_directo} pct={pct(d.total_costo_directo)} muted />
                   <Tr label="Indirectos" value={d.total_indirectos} pct={pct(d.total_indirectos)} />
                   <Tr label="Utilidad" value={d.total_utilidad} pct={pct(d.total_utilidad)} />
@@ -160,6 +181,9 @@ function Desglose() {
 
             <p className="text-xs text-muted-foreground">
               Los montos se actualizan automáticamente al modificar conceptos o cantidades en la cotización.
+              <br />
+              Nota: la columna <strong>Subcontrato</strong> suma los conceptos marcados como
+              subcontratados y aún no está descontada del cálculo de Costo directo del servidor.
             </p>
           </>
         )}
