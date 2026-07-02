@@ -248,6 +248,7 @@ function Catalogo() {
     }
     setEditing(null);
     qc.invalidateQueries({ queryKey: ["catalogo-conceptos"] });
+    qc.invalidateQueries({ queryKey: ["conceptos"] });
   }
 
   return (
