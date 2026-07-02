@@ -219,6 +219,7 @@ function Catalogo() {
   async function handleSave() {
     if (!editing) return;
     const payload = {
+      despacho_id: DESPACHO_ID,
       partida_id: editing.partida_id,
       clave: editing.clave,
       descripcion: editing.descripcion,
@@ -247,6 +248,7 @@ function Catalogo() {
     }
     setEditing(null);
     qc.invalidateQueries({ queryKey: ["catalogo-conceptos"] });
+    qc.invalidateQueries({ queryKey: ["conceptos"] });
   }
 
   return (
